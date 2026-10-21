@@ -118,6 +118,42 @@ def main():
         time.sleep(0.3)
 
     crafts = get(f'{API}/crafts?server={SERVER}&sort=name&order=asc')
+    # 製作の詳細（段階・材料・費用の内訳）。ゆっくりしか変わらないので6時間に1回だけ取り直し、
+    # それ以外は前回の分を使う（相場サイトへのアクセスを増やしすぎないため）。取れなかった品は一覧だけ出す
+    previous = load_previous('crafts.json')
+    refresh = not previous or now.hour % 6 == 0
+    details = {}  # この回に取り直した分（品目IDのまま）
+    for t in crafts.get('targets', []) if refresh else []:
+        try:
+            d = get(f'{API}/crafts/{t["target_key"]}?server={SERVER}', tries=2)
+        except Exception:
+            continue
+        details[str(t['target_key'])] = [dict(
+            key=s['result_key'], name=s['result_name'], mastery=s.get('mastery_level'), success=s.get('success_rate'),
+            combo=s.get('combo_probability'), attempts=s.get('attempts'), cost=round(s.get('step_cost') or 0),
+            mats=[dict(key=m['material_key'], name=m['name'], per=m.get('per_attempt'), exp=m.get('expected'),
+                       unit=m.get('unit_price'), sub=round(m.get('subtotal') or 0), method=m.get('method'),
+                       via=[v.get('item_key') for v in m.get('via', [])]) for m in s.get('materials', [])],
+        ) for s in d.get('steps', [])]
+        time.sleep(0.3)
+    if refresh:  # 取り直した回だけ、品目IDを日本語名に置き換える（前回分は置き換え済み）
+        craft_keys = {str(x) for st_ in details.values() for s in st_ for x in [s['key']] + [m['key'] for m in s['mats']]}
+        for k in [k for k in craft_keys if k not in names][:NAMES_PER_RUN]:   # 材料の日本語名
+            try:
+                html = get(f'https://aion2.th.gl/ja/db/inventory/it_{k}', as_json=False, tries=1)
+                s = html.find('<title>')
+                title = unescape(html[s + 7:html.find('</title>', s)]) if s >= 0 else ''
+                names[k] = title.split(' – ')[0].strip() if ' – ' in title else ''
+            except Exception:
+                pass
+            time.sleep(0.3)
+        for steps in details.values():
+            for s in steps:
+                s['name'] = names.get(str(s['key'])) or s['name']
+                for m in s['mats']:
+                    m['name'] = names.get(str(m['key'])) or m['name']
+                    m['via'] = [names.get(str(v)) or '' for v in m['via'] if v]
+    details = {**previous, **details}  # 取り直せなかった品は前回の分を使う
 
     # 分析（品目ごと）
     t0 = now - timedelta(days=7)
@@ -147,12 +183,13 @@ def main():
         mp = t.get('market_price')
         net = mp * (1 - SELL_FEE - LIST_FEE) - t['cost'] if mp else None
         craft_rows.append([names.get(str(t['target_key'])) or t['name'], SKILL_JA.get(t['skill'], t['skill']),
-                           round(t['cost']), mp, t.get('listings'), round(net) if net is not None else None])
+                           round(t['cost']), mp, t.get('listings'), round(net) if net is not None else None,
+                           str(t['target_key'])])
     craft_rows.sort(key=lambda r: r[5] if r[5] is not None else -1e18, reverse=True)
 
     data = dict(stamp=now.astimezone(JST).strftime('%m/%d %H:%M'), built=datetime.now(JST).strftime('%m/%d %H:%M'),
                 capturedIso=now.strftime('%Y-%m-%dT%H:%M:%SZ'), t0Iso=t0.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                items=rows, hist=hist_out, crafts=craft_rows)
+                items=rows, hist=hist_out, crafts=craft_rows, craftDetail=details)
     html = (BASE / 'template.html').read_text(encoding='utf-8')
     html = html.replace('/*DATA*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/'))
     icon = BASE / 'icon64.b64'
@@ -164,6 +201,7 @@ def main():
     (SITE / 'index.html').write_text(html, encoding='utf-8')
     (SITE / 'history.json').write_text(json.dumps(history, separators=(',', ':')), encoding='utf-8')
     (SITE / 'names.json').write_text(json.dumps(names, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    (SITE / 'crafts.json').write_text(json.dumps(details, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print(f'ok data={data["stamp"]} items={len(rows)} names+={len(missing)}')
 
 

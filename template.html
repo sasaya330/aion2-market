@@ -83,6 +83,18 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .seg button { flex: 1; font: inherit; font-size: 13px; padding: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer; }
 .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .tip { font-size: 13px; padding: 6px 8px; background: var(--chip); border-radius: 8px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.star { border: 0; background: none; color: var(--sub); font-size: 17px; line-height: 1; padding: 0 6px 0 0; cursor: pointer; vertical-align: -1px; }
+.star.on { color: #eab308; }
+.scroll { overflow-x: auto; }
+table.grid td, table.grid th { white-space: nowrap; font-size: 13px; padding: 7px 8px; }
+table.grid td:nth-child(2) { white-space: normal; min-width: 150px; text-align: left; }
+table.grid td:nth-child(3), table.grid th:nth-child(3) { text-align: left; }
+table.grid tr[data-k] { cursor: pointer; }
+table.grid tr[data-k]:hover { background: var(--chip); }
+th.sortable { cursor: pointer; text-decoration: underline dotted; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--sub); margin-top: 2px; }
+.legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right: 4px; }
+.legend i.lst { border-top: 2px dashed #a3a3a3; }
 @media (min-width: 1000px) {
   header { padding-left: 0; padding-right: 0; }
   header > * { max-width: 1400px; margin-left: auto; margin-right: auto; padding-left: 24px; padding-right: 24px; }
@@ -159,31 +171,41 @@ function drawDetail(k) {
   const pts = points(k).filter(p => p.t >= start - 1);
   document.querySelectorAll('#dRange button').forEach(b => b.classList.toggle('on', +b.dataset.h === hours));
   if (pts.length < 2) { box.innerHTML = '<div class="empty">この期間の記録がありません</div>'; document.getElementById('dStats').innerHTML = ''; return; }
-  const W = Math.max(280, box.clientWidth), H = 230, L = 62, R = 10, Tp = 12, B = 34;
+  const W = Math.max(280, box.clientWidth), H = 230, L = 62, R = 40, Tp = 12, B = 34;  // 右側は出品数の目盛り
   const ys = pts.map(p => p.p), lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo || hi * 0.05 || 1;
   const ylo = lo - span * 0.08, yhi = hi + span * 0.08;
   const X = t => L + (t - start) / (end - start) * (W - L - R);
   const Y = y => Tp + (yhi - y) / (yhi - ylo) * (H - Tp - B);
-  const every = { 6: 1, 24: 4, 72: 12, 168: 24 }[hours];
+  const narrow = W < 520;
+  const every = { 6: 1, 24: 4, 72: 12, 168: narrow ? 48 : 24 }[hours];
   let grid = '';
   for (let t = Math.ceil(start / 3.6e6) * 3.6e6; t <= end; t += 3.6e6) {
-    if (new Date(t).getHours() % every !== 0) continue;
+    const dd = new Date(t);
+    if (every === 48 ? (dd.getHours() !== 0 || dd.getDate() % 2) : dd.getHours() % every !== 0) continue;  // 48＝2日おき
     grid += `<line x1="${X(t)}" x2="${X(t)}" y1="${Tp}" y2="${H - B}" stroke="var(--line)"/>
-      <text x="${X(t)}" y="${H - B + 16}" font-size="11" text-anchor="middle" fill="var(--sub)">${tickLabel(t, hours)}</text>`;
+      <text x="${X(t)}" y="${H - B + 16}" font-size="11" text-anchor="middle" fill="var(--sub)">${tickLabel(t, narrow && hours > 24 ? 24 : hours)}</text>`;
   }
   for (let i = 0; i <= 3; i++) {
     const v = ylo + (yhi - ylo) * i / 3;
     grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/>
       <text x="${L - 6}" y="${Y(v) + 4}" font-size="11" text-anchor="end" fill="var(--sub)">${yen(v)}</text>`;
   }
+  // 出品数（右の目盛り）。値段とは別の縮尺で、点線で描く
+  const lmax = Math.max(1, ...pts.map(p => p.l)) * 1.1;
+  const YL = l => Tp + (lmax - l) / lmax * (H - Tp - B);
+  for (const l of [0, lmax / 2, lmax]) {
+    grid += `<text x="${W - R + 4}" y="${YL(l) + 4}" font-size="10" fill="#a3a3a3">${Math.round(l)}</text>`;
+  }
+  const lpath = `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + YL(p.l).toFixed(1)).join('')}" fill="none" stroke="#a3a3a3" stroke-width="1.5" stroke-dasharray="4 3"/>`;
   const it = byKey[k];
   const med = it.m72 >= ylo && it.m72 <= yhi ? `<line x1="${L}" x2="${W - R}" y1="${Y(it.m72)}" y2="${Y(it.m72)}" stroke="var(--sub)" stroke-dasharray="4 4"/>
     <text x="${W - R}" y="${Y(it.m72) - 4}" font-size="11" text-anchor="end" fill="var(--sub)">72時間中央値</text>` : '';
   box.innerHTML = `<svg width="${W}" height="${H}" style="display:block;touch-action:pan-y" id="dSvg">
-      ${grid}${med}<path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.p).toFixed(1)).join('')}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      ${grid}${med}${lpath}<path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.p).toFixed(1)).join('')}" fill="none" stroke="var(--accent)" stroke-width="2"/>
       <line id="dCur" y1="${Tp}" y2="${H - B}" stroke="var(--text)" stroke-width="1" opacity=".5"/>
       <circle id="dDot" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>
       <rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent" id="dHit"/></svg>
+    <div class="legend"><span><i></i>最安値（左の目盛り）</span><span><i class="lst"></i>出品数（右の目盛り）</span></div>
     <div id="dTip" class="tip"></div>`;
   const show = p => {
     ['x1', 'x2'].forEach(a => document.getElementById('dCur').setAttribute(a, X(p.t)));
@@ -217,10 +239,28 @@ function trendTag(i) {
 }
 const badgeY = v => v == null ? '-' : `<span class="badge ${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${yen(v)}</span>`;
 const chg = v => v == null ? '<span>-</span>' : `<span class="${v >= 0 ? 'upc' : 'dnc'}">${v >= 0 ? '▲' : '▼'}${pct(Math.abs(v)).replace('+', '')}</span>`;
-function itemCard(i) {
+// ---------- お気に入り（この端末のブラウザに保存） ----------
+const FKEY = 'aion2-guild-fav';
+const favs = new Set((() => { try { return JSON.parse(localStorage.getItem(FKEY) || '[]'); } catch (e) { return []; } })());
+const isFav = k => favs.has(+k);
+function toggleFav(k) {
+  k = +k; favs.has(k) ? favs.delete(k) : favs.add(k);
+  try { localStorage.setItem(FKEY, JSON.stringify([...favs])); } catch (e) {}
+}
+const star = k => `<button class="star${isFav(k) ? ' on' : ''}" data-act="fav" data-k="${k}" aria-label="お気に入り">${isFav(k) ? '★' : '☆'}</button>`;
+
+// 指定した時間前と比べた変化（記録から計算）
+function changeOver(i, hours) {
+  const target = Date.parse(D.capturedIso) - hours * 3.6e6 + 30 * 6e4;
+  const past = points(i.k).filter(p => p.t <= target);
+  // 記録が抜けていて、ずっと前の値段しかない場合は比べない（「1時間前」と言えないため）
+  if (!past.length || target - past.at(-1).t > Math.max(1.5, hours * 0.1) * 3.6e6) return null;
+  return { ch: i.now / past.at(-1).p - 1, from: past.at(-1).p };
+}
+function itemCard(i, right) {
   return `<div class="item" data-k="${i.k}">
-    <div class="name">${esc(i.ja)}${trendTag(i)}</div><div class="price">${yen(i.now)}</div>
-    <div class="sub">${esc(i.cat)}・出品${i.lst}</div><div class="right">24h ${chg(i.c24)}　7日 ${chg(i.c7)}</div>
+    <div class="name">${star(i.k)}${esc(i.ja)}${trendTag(i)}</div><div class="price">${yen(i.now)}</div>
+    <div class="sub">${esc(i.cat)}・出品${i.lst}</div><div class="right">${right || `24h ${chg(i.c24)}　7日 ${chg(i.c7)}`}</div>
     ${spark(i.k)}</div>`;
 }
 
@@ -238,18 +278,33 @@ function addWatch(i, target) {
 
 const views = {
   moves() {
-    const m = D.items.filter(i => i.c24 != null && i.lst >= 10);  // 出品が少ない品は極端な出品1つで値段が跳ねるので外す
-    const up = [...m].sort((a, b) => b.c24 - a.c24).slice(0, 15), dn = [...m].sort((a, b) => a.c24 - b.c24).slice(0, 15);
-    return `<p class="note">24時間で大きく動いた品（出品10件以上）。タップすると値動きのグラフが見られます。</p>
-      <div class="sec-title">▲ 値上がり</div><div class="list">${up.map(itemCard).join('')}</div>
-      <div class="sec-title">▼ 値下がり</div><div class="list">${dn.map(itemCard).join('')}</div>`;
+    const win = state.mvWin || 24, min = state.mvMin || 10;
+    const label = MV_WIN.find(w => w[0] === win)[1];
+    const m = D.items.filter(i => i.lst >= min).map(i => ({ i, c: changeOver(i, win) })).filter(x => x.c);
+    const card = x => itemCard(x.i, `${label}前 ${yen(x.c.from)} → ${chg(x.c.ch)}`);
+    const up = [...m].sort((a, b) => b.c.ch - a.c.ch).slice(0, 15), dn = [...m].sort((a, b) => a.c.ch - b.c.ch).slice(0, 15);
+    return `<div class="controls">
+        <select id="mvWin">${MV_WIN.map(([h, l]) => `<option value="${h}" ${h === win ? 'selected' : ''}>${l}の変化</option>`).join('')}</select>
+        <select id="mvMin">${[3, 10, 30, 100].map(n => `<option value="${n}" ${n === min ? 'selected' : ''}>出品${n}件以上</option>`).join('')}</select>
+      </div>
+      <p class="note">選んだ期間で大きく動いた品。出品が少ない品は、極端な値段の出品1つで値段が跳ねるので、出品数の下限で外せます。</p>
+      <div class="sec-title">▲ 値上がり</div><div class="list">${up.map(card).join('') || '<div class="empty">該当なし</div>'}</div>
+      <div class="sec-title">▼ 値下がり</div><div class="list">${dn.map(card).join('') || '<div class="empty">該当なし</div>'}</div>`;
   },
   all() {
+    const cats = [...new Set(D.items.filter(i => !state.sec || i.sec === state.sec).map(i => i.cat))].sort((a, b) => a.localeCompare(b, 'ja'));
     return `<div class="controls">
         <input id="q" type="search" placeholder="品目名で検索（例：オード）" value="${esc(state.q)}">
-        <select id="sec"><option value="">すべての分類</option>${Object.entries(SEC).map(([k, v]) => `<option value="${k}" ${state.sec === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-        <select id="sort">${[['c24', '24時間の変化'], ['c7', '7日間の変化'], ['now', '値段'], ['lst', '出品数'], ['ja', '名前']].map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${v}順</option>`).join('')}</select>
-      </div><div class="list" id="allList"></div>`;
+        <select id="sec"><option value="">すべての大分類</option>${Object.entries(SEC).map(([k, v]) => `<option value="${k}" ${state.sec === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <select id="cat"><option value="">すべての分類</option>${cats.map(c => `<option ${state.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        <select id="sort">${SORTS.map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${v}順</option>`).join('')}</select>
+        <div class="seg" style="margin:0;flex:0 0 auto" id="viewSeg"><button data-v="card" class="${state.view !== 'table' ? 'on' : ''}">カード</button><button data-v="table" class="${state.view === 'table' ? 'on' : ''}">表</button></div>
+      </div><div id="allList"></div>`;
+  },
+  fav() {
+    const l = D.items.filter(i => isFav(i.k));
+    return `<p class="note">☆を押した品目がここに並びます（この端末のブラウザだけに保存）。</p>
+      <div class="list">${l.map(i => itemCard(i)).join('') || '<div class="empty">まだありません。品目の☆を押すと追加されます</div>'}</div>`;
   },
   watch() {
     const rows = loadW().map(w => ({ w, i: byKey[w.k] }))
@@ -274,36 +329,62 @@ const views = {
       }).join('') || '<div class="empty">まだ登録がありません</div>'}</div>`;
   },
   craft() {
-    return `<p class="note">製作して売る場合（製作熟練度100が前提、Aion2Marketの試算）。費用は大成功を重ねて最上位を1個作るまでの平均です。製作の種類は英語名からの訳です。</p>
+    return `<p class="note">製作して売る場合（製作熟練度100が前提、Aion2Marketの試算）。費用は大成功を重ねて最上位を1個作るまでの平均です。行をタップすると、段階と材料の内訳が見られます。製作の種類は英語名からの訳です。</p>
       <table><tr><th>製作品</th><th>費用</th><th>最安値</th><th>手残り</th></tr>
-      ${D.crafts.map(c => `<tr><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}</div></td><td>${yen(c[2])}</td><td>${yen(c[3])}</td><td>${badgeY(c[5])}</td></tr>`).join('')}</table>
+      ${D.crafts.map(c => `<tr data-craft="${c[6]}" style="cursor:pointer"><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}${D.craftDetail && D.craftDetail[c[6]] ? '・<u>内訳を見る</u>' : ''}</div></td><td>${yen(c[2])}</td><td>${yen(c[3])}</td><td>${badgeY(c[5])}</td></tr>`).join('')}</table>
       <p class="note" style="margin-top:8px">手残り＝最安値で売れた場合に、販売手数料10%と出品手数料2%を引いた額 − 費用。</p>`;
   },
 };
 
-const TABS = [['moves', '急変動'], ['all', '全相場'], ['watch', 'ほしい物'], ['craft', '製作']];
-const state = { tab: 'moves', q: '', sec: '', sort: 'c24', range: 72 };
+const MV_WIN = [[1, '1時間'], [6, '6時間'], [24, '24時間'], [168, '7日']];
+const SORTS = [['c24', '24時間の変化'], ['c7', '7日間の変化'], ['now', '値段'], ['lst', '出品数'], ['ja', '名前']];
+const TABS = [['moves', '急変動'], ['all', '全相場'], ['fav', '★お気に入り'], ['watch', 'ほしい物'], ['craft', '製作']];
+const state = { tab: 'moves', q: '', sec: '', cat: '', sort: 'c24', asc: false, view: 'card', range: 72, mvWin: 24, mvMin: 10 };
 try { Object.assign(state, JSON.parse(localStorage.getItem('aion2-guild-ui') || '{}')); } catch (e) {}
 if (!views[state.tab]) state.tab = 'moves';
 const save = () => { try { localStorage.setItem('aion2-guild-ui', JSON.stringify(state)); } catch (e) {} };
 
 function renderAll() {
   const q = state.q.trim().toLowerCase(), s = state.sort;
-  const list = D.items.filter(i => (!state.sec || i.sec === state.sec) && (!q || i.ja.toLowerCase().includes(q) || i.en.toLowerCase().includes(q)))
-    .sort((a, b) => s === 'ja' ? a.ja.localeCompare(b.ja, 'ja') : (b[s] ?? -Infinity) - (a[s] ?? -Infinity));
-  document.getElementById('allList').innerHTML = list.slice(0, 200).map(itemCard).join('') +
-    (list.length > 200 ? `<div class="empty">ほか${list.length - 200}件。検索で絞り込んでください</div>` : '') +
+  const list = D.items.filter(i => (!state.sec || i.sec === state.sec) && (!state.cat || i.cat === state.cat) &&
+      (!q || i.ja.toLowerCase().includes(q) || i.en.toLowerCase().includes(q)))
+    .sort((a, b) => {
+      // 名前は五十音順、数字は大きい順が基本。state.asc で逆にする
+      const cmp = s === 'ja' ? a.ja.localeCompare(b.ja, 'ja') : (b[s] ?? -Infinity) - (a[s] ?? -Infinity);
+      return state.asc ? -cmp : cmp;
+    });
+  const shown = list.slice(0, 300);
+  const more = (list.length > 300 ? `<div class="empty">ほか${list.length - 300}件。検索で絞り込んでください</div>` : '') +
     (list.length ? '' : '<div class="empty">見つかりません</div>');
+  const el = document.getElementById('allList');
+  if (state.view !== 'table') { el.innerHTML = `<div class="list">${shown.map(i => itemCard(i)).join('')}</div>` + more; return; }
+  const th = (k, l) => `<th data-sort="${k}" class="sortable">${l}${s === k ? (state.asc ? ' ▲' : ' ▼') : ''}</th>`;
+  el.innerHTML = `<div class="scroll"><table class="grid"><tr><th></th>${th('ja', '品目')}<th>分類</th>${th('now', '最安値')}${th('c24', '24時間')}${th('c7', '7日')}${th('lst', '出品数')}</tr>
+    ${shown.map(i => `<tr data-k="${i.k}"><td>${star(i.k)}</td><td>${esc(i.ja)}${trendTag(i)}</td><td>${esc(i.cat)}</td><td>${yen(i.now)}</td><td>${chg(i.c24)}</td><td>${chg(i.c7)}</td><td>${i.lst}</td></tr>`).join('')}
+    </table></div>` + more;
 }
 function render() {
   const hits = loadW().filter(wantHit).length;
   document.getElementById('tabs').innerHTML = TABS.map(([k, v]) => `<button class="${state.tab === k ? 'on' : ''}" data-tab="${k}">${v}${k === 'watch' && hits ? ` <span class="badge pos">買い時${hits}</span>` : ''}</button>`).join('');
   document.getElementById('main').innerHTML = views[state.tab]();
+  if (state.tab === 'moves') {
+    document.getElementById('mvWin').addEventListener('change', e => { state.mvWin = +e.target.value; save(); render(); });
+    document.getElementById('mvMin').addEventListener('change', e => { state.mvMin = +e.target.value; save(); render(); });
+  }
   if (state.tab === 'all') {
     renderAll();
     document.getElementById('q').addEventListener('input', e => { state.q = e.target.value; save(); renderAll(); });
-    document.getElementById('sec').addEventListener('change', e => { state.sec = e.target.value; save(); renderAll(); });
-    document.getElementById('sort').addEventListener('change', e => { state.sort = e.target.value; save(); renderAll(); });
+    document.getElementById('sec').addEventListener('change', e => { state.sec = e.target.value; state.cat = ''; save(); render(); });
+    document.getElementById('cat').addEventListener('change', e => { state.cat = e.target.value; save(); renderAll(); });
+    document.getElementById('sort').addEventListener('change', e => { state.sort = e.target.value; state.asc = false; save(); renderAll(); });
+    document.getElementById('viewSeg').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      state.view = b.dataset.v; save(); render();
+    });
+    document.getElementById('allList').addEventListener('click', e => {  // 表の見出しで並べ替え（もう一度押すと逆順）
+      const th = e.target.closest('th[data-sort]'); if (!th) return;
+      state.asc = state.sort === th.dataset.sort ? !state.asc : false; state.sort = th.dataset.sort; save(); render();
+    });
   }
   if (state.tab === 'watch') {
     const wi = document.getElementById('wItem'), wt = document.getElementById('wTarget'), wh = document.getElementById('wHint');
@@ -323,13 +404,44 @@ document.getElementById('tabs').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   state.tab = b.dataset.tab; save(); render(); window.scrollTo(0, 0);
 });
+function refreshStars(k) {  // 画面を作り直さずに、同じ品目の☆を全部切り替える
+  document.querySelectorAll(`button.star[data-k="${k}"]`).forEach(s => { s.classList.toggle('on', isFav(k)); s.textContent = isFav(k) ? '★' : '☆'; });
+}
 document.getElementById('main').addEventListener('click', e => {
+  const f = e.target.closest('button[data-act="fav"]');
+  if (f) { toggleFav(f.dataset.k); if (state.tab === 'fav') render(); else refreshStars(f.dataset.k); return; }
   const b = e.target.closest('button[data-act="wdel"]');
   if (b) { if (confirm('ほしい物から外しますか？')) { saveW(loadW().filter(w => w.k != b.dataset.k)); render(); } return; }
-  const el = e.target.closest('.item'); if (!el || !el.dataset.k) return;
-  const i = byKey[el.dataset.k];
+  const cr = e.target.closest('tr[data-craft]'); if (cr) { openCraft(cr.dataset.craft); return; }
+  const el = e.target.closest('.item, tr[data-k]'); if (!el || !el.dataset.k) return;
+  openDetail(byKey[el.dataset.k]);
+});
+document.getElementById('dlg').addEventListener('click', e => {
+  const f = e.target.closest('button[data-act="fav"]');
+  if (f) { toggleFav(f.dataset.k); refreshStars(f.dataset.k); if (state.tab === 'fav') render(); }
+});
+const METHOD = { buy: '取引所で買う', craft: '材料から作る', morph: '物質変換' };
+function openCraft(key) {
+  const c = D.crafts.find(x => x[6] === key), steps = (D.craftDetail || {})[key];
+  if (!c || !steps) return;
+  const pctx = v => v == null ? '-' : Math.round(v * 100) + '%';
   document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
-    <h2>${esc(i.ja)}</h2><div class="note">${esc(i.en)}・${esc(i.cat)}</div>
+    <h2>${esc(c[0])}</h2>
+    <div class="note">${esc(c[1])}・製作熟練度100が前提・費用合計 ${yen(c[2])}（取引所の最安値 ${yen(c[3])}）</div>
+    <div class="rule">大成功（次の段階の品ができる）を重ねて、最後の品を1個作るまでの<b style="display:inline">平均</b>です。運が悪いと何倍もかかります。</div>
+    ${steps.map((s, n) => `<div class="sec-title">${n + 1}. ${esc(s.name)} を約${Math.round(s.attempts)}回作る（費用 ${yen(s.cost)}）</div>
+      <div class="note">成功率 ${pctx(s.success)}・大成功 ${pctx(s.combo)}${s.mastery ? '・必要熟練度 ' + s.mastery : ''}</div>
+      <div class="scroll"><table class="grid"><tr><th>材料</th><th>1回</th><th>合計</th><th>単価</th><th>小計</th><th>手に入れ方</th></tr>
+      ${s.mats.map(m => `<tr><td>${esc(m.name)}</td><td>${m.per ?? '-'}</td><td>${m.exp == null ? '-' : Math.round(m.exp)}</td><td>${yen(m.unit)}</td><td>${yen(m.sub)}</td>
+        <td style="text-align:left">${esc(METHOD[m.method] || m.method || '')}${m.via && m.via.filter(Boolean).length ? '（' + m.via.filter(Boolean).map(esc).join('・') + 'から）' : ''}</td></tr>`).join('')}
+      </table></div>`).join('')}`;
+  const dlg = document.getElementById('dlg');
+  dlg.showModal();
+  document.getElementById('dlgClose').onclick = () => dlg.close();
+}
+function openDetail(i) {
+  document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
+    <h2>${star(i.k)}${esc(i.ja)}</h2><div class="note">${esc(i.en)}・${esc(i.cat)}</div>
     <div class="seg" id="dRange">${RANGES.map(([h, l]) => `<button data-h="${h}">${l}</button>`).join('')}</div>
     <div id="dChart"></div>
     <div class="note">グラフをタップ（PCはマウスを乗せる）すると、その時刻の値段が出ます</div>
@@ -354,7 +466,7 @@ document.getElementById('main').addEventListener('click', e => {
     try { addWatch(i, v); dlg.close(); state.tab = 'watch'; save(); render(); } catch (err) { alert(err.message); }
   };
   document.getElementById('dlgClose').onclick = () => dlg.close();
-});
+}
 document.getElementById('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') e.target.close(); });
 render();
 
