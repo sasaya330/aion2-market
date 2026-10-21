@@ -1,0 +1,41 @@
+# 毎時13分に相場を取り込み、GitHub Pages に公開する
+name: update
+
+on:
+  schedule:
+    - cron: '13 * * * *'   # UTC。相場サイトの更新（毎時9分）の少し後
+  workflow_dispatch:        # Actions の画面から手動でも動かせる
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: pages
+        uses: actions/configure-pages@v5
+      - name: 相場を取り込んでページを作る
+        run: python update.py
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

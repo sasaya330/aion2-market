@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AION2 相場（バイゼル）</title>
+<!--ICON-->
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --text: #1d2129; --sub: #6b7280; --line: #e5e7eb;
+  --accent: #2f5bd3; --up: #15803d; --down: #b91c1c; --good-bg: #dcfce7; --good: #166534;
+  --bad-bg: #fee2e2; --bad: #991b1b; --chip: #eef2ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115; --card: #1a1d24; --text: #e8eaf0; --sub: #9aa3b2; --line: #2a2f3a;
+    --accent: #7ea2ff; --up: #4ade80; --down: #f87171; --good-bg: #123322; --good: #86efac;
+    --bad-bg: #3a1616; --bad: #fca5a5; --chip: #222a3d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
+h1 { font-size: 17px; margin: 0; }
+.meta { color: var(--sub); font-size: 12px; margin: 2px 0 8px; }
+.stale { color: var(--bad); font-weight: 700; }
+nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
+nav button { flex: none; border: 0; background: none; color: var(--sub); font: inherit; font-size: 14px;
+  padding: 8px 10px; border-bottom: 3px solid transparent; cursor: pointer; }
+nav button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 24px); max-width: 900px; margin: 0 auto; }
+footer { max-width: 900px; margin: 0 auto; padding: 0 16px 32px; color: var(--sub); font-size: 11px; }
+footer a { color: var(--sub); }
+.note { color: var(--sub); font-size: 12px; margin: 0 0 10px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.controls input, .controls select { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.controls input { flex: 1 1 180px; min-width: 0; }
+.list { display: grid; gap: 8px; }
+.item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; cursor: pointer; }
+.item .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .price { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.item .sub { color: var(--sub); font-size: 12px; }
+.item .right { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.pos { background: var(--good-bg); color: var(--good); }
+.neg { background: var(--bad-bg); color: var(--bad); }
+.upc { color: var(--up); } .dnc { color: var(--down); }
+.spark { grid-column: 1 / -1; height: 28px; width: 100%; }
+.sec-title { font-weight: 700; margin: 14px 0 6px; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; font-size: 14px; }
+th:first-child, td:first-child { text-align: left; }
+th { background: var(--chip); font-size: 12px; color: var(--sub); }
+dialog { border: 0; border-radius: 16px; padding: 0; width: min(640px, calc(100% - 24px)); background: var(--card); color: var(--text); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.dlg { padding: 16px; }
+.dlg h2 { margin: 0 0 2px; font-size: 18px; }
+.dlg .close { float: right; border: 0; background: var(--chip); color: var(--text); border-radius: 8px; padding: 6px 10px; font: inherit; }
+.empty { color: var(--sub); text-align: center; padding: 24px; }
+.btn { font: inherit; font-size: 14px; border: 0; border-radius: 10px; padding: 8px 12px; background: var(--accent); color: #fff; cursor: pointer; }
+.btn.ghost { background: var(--chip); color: var(--text); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.form { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; margin-bottom: 12px; }
+.form label { display: grid; gap: 2px; font-size: 12px; color: var(--sub); }
+.form input { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.msg { font-size: 13px; min-height: 1.2em; }
+.msg.err { color: var(--bad); }
+.rule { background: var(--chip); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+.rule b { display: block; margin-bottom: 2px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; margin-left: 4px; }
+.tag.down { background: var(--bad-bg); color: var(--bad); }
+.tag.up { background: var(--good-bg); color: var(--good); }
+.actions { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+.seg { display: flex; gap: 4px; margin: 10px 0 6px; }
+.seg button { flex: 1; font: inherit; font-size: 13px; padding: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer; }
+.seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.tip { font-size: 13px; padding: 6px 8px; background: var(--chip); border-radius: 8px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+@media (min-width: 1000px) {
+  header { padding-left: 0; padding-right: 0; }
+  header > * { max-width: 1400px; margin-left: auto; margin-right: auto; padding-left: 24px; padding-right: 24px; }
+  main, footer { max-width: 1400px; padding-left: 24px; padding-right: 24px; }
+  .list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+  .rule { max-width: 1000px; }
+  .form { max-width: 720px; }
+  table { max-width: 1100px; }
+  dialog { width: min(960px, calc(100% - 48px)); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>AION2 相場（バイゼル・天族）</h1>
+  <div class="meta" id="meta"></div>
+  <nav id="tabs"></nav>
+</header>
+<main id="main"></main>
+<footer>
+  非公式のファンツールです。相場は <a href="https://aion2.exchange" target="_blank" rel="noopener">Aion2Market</a> のデータ（各時点の最安出品価格。実際に売れた値段ではありません）、
+  日本語の品目名は <a href="https://aion2.th.gl/ja" target="_blank" rel="noopener">AION 2 データベース</a> を使っています。1時間ごとに自動で更新します。
+</footer>
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<script>
+const D = /*DATA*/null;
+const yen = v => v == null ? '-' : Math.round(v).toLocaleString('ja-JP');
+const pct = v => v == null ? '-' : (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SEC = {materials:'素材', consumables:'消耗品', accessories:'アクセサリー', weapons:'武器', armor:'防具', skins:'外見', other:'その他'};
+const CAT = {'Gathered resources':'採集物', 'Crafting materials':'製作材料', 'Food':'料理', 'Potions & serums':'ポーション',
+  'Scrolls':'スクロール', 'Manastones & soulstones':'魔石・霊石', 'Sealed wings':'封印された翼', 'Wings':'翼', 'Artwork':'絵画',
+  'Transformation candy':'変身キャンディ', 'Amplify stones':'限界突破石', 'Other items':'その他', 'Greatswords':'大剣',
+  'Longswords':'長剣', 'Daggers':'短剣', 'Bows':'弓', 'Orbs':'宝珠', 'Spellbooks':'魔導書', 'Staves':'杖', 'Maces':'メイス',
+  'Guards':'ガーダー', 'Helms':'ヘルム', 'Pauldrons':'ショルダー', 'Breastplates':'胴', 'Greaves':'ゲートル', 'Gloves':'グローブ',
+  'Boots':'ブーツ', 'Cloaks':'マント', 'Necklaces':'ネックレス', 'Earrings':'イヤリング', 'Rings':'リング',
+  'Armor skins':'外見（防具）', 'Weapon skins':'外見（武器）'};
+D.items.forEach(i => { i.cat = CAT[i.cat] || i.cat; });
+const byKey = Object.fromEntries(D.items.map(i => [i.k, i]));
+const byName = Object.fromEntries(D.items.map(i => [i.ja, i]));
+
+const ageH = (Date.now() - Date.parse(D.capturedIso)) / 3.6e6;
+document.getElementById('meta').innerHTML = `データ ${esc(D.stamp)}／更新 ${esc(D.built)}` +
+  (ageH > 3 ? ` <span class="stale">（${Math.floor(ageH)}時間前のデータ）</span>` : '');
+
+// ---------- グラフ ----------
+const T0 = Date.parse(D.t0Iso);
+function points(k) {
+  const s = D.hist[k] || [], out = [];
+  for (let i = 0; i < s.length; i += 3) out.push({ t: T0 + s[i] * 3.6e6, p: s[i + 1], l: s[i + 2] });
+  return out;
+}
+function spark(k) {
+  const pts = points(k);
+  if (pts.length < 2) return '';
+  const w = 300, h = 28, t0 = pts[0].t, t1 = pts.at(-1).t, ys = pts.map(p => p.p), lo = Math.min(...ys), hi = Math.max(...ys);
+  const X = t => 2 + (t - t0) / Math.max(1, t1 - t0) * (w - 4), Y = y => h - 2 - (hi === lo ? 0.5 : (y - lo) / (hi - lo)) * (h - 4);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="7日間の値動き">
+    <path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.p).toFixed(1)).join('')}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const RANGES = [[6, '6時間'], [24, '24時間'], [72, '3日'], [168, '7日']];
+const WD = '日月火水木金土';
+const fmtTime = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function tickLabel(t, hours) {
+  const d = new Date(t), hh = String(d.getHours()).padStart(2, '0');
+  if (d.getHours() === 0) return hours <= 24 ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`;
+  return `${hh}時`;
+}
+function drawDetail(k) {
+  const box = document.getElementById('dChart');
+  if (!box) return;
+  const hours = state.range || 72;
+  const end = Date.parse(D.capturedIso), start = end - hours * 3.6e6;
+  const pts = points(k).filter(p => p.t >= start - 1);
+  document.querySelectorAll('#dRange button').forEach(b => b.classList.toggle('on', +b.dataset.h === hours));
+  if (pts.length < 2) { box.innerHTML = '<div class="empty">この期間の記録がありません</div>'; document.getElementById('dStats').innerHTML = ''; return; }
+  const W = Math.max(280, box.clientWidth), H = 230, L = 62, R = 10, Tp = 12, B = 34;
+  const ys = pts.map(p => p.p), lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo || hi * 0.05 || 1;
+  const ylo = lo - span * 0.08, yhi = hi + span * 0.08;
+  const X = t => L + (t - start) / (end - start) * (W - L - R);
+  const Y = y => Tp + (yhi - y) / (yhi - ylo) * (H - Tp - B);
+  const every = { 6: 1, 24: 4, 72: 12, 168: 24 }[hours];
+  let grid = '';
+  for (let t = Math.ceil(start / 3.6e6) * 3.6e6; t <= end; t += 3.6e6) {
+    if (new Date(t).getHours() % every !== 0) continue;
+    grid += `<line x1="${X(t)}" x2="${X(t)}" y1="${Tp}" y2="${H - B}" stroke="var(--line)"/>
+      <text x="${X(t)}" y="${H - B + 16}" font-size="11" text-anchor="middle" fill="var(--sub)">${tickLabel(t, hours)}</text>`;
+  }
+  for (let i = 0; i <= 3; i++) {
+    const v = ylo + (yhi - ylo) * i / 3;
+    grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/>
+      <text x="${L - 6}" y="${Y(v) + 4}" font-size="11" text-anchor="end" fill="var(--sub)">${yen(v)}</text>`;
+  }
+  const it = byKey[k];
+  const med = it.m72 >= ylo && it.m72 <= yhi ? `<line x1="${L}" x2="${W - R}" y1="${Y(it.m72)}" y2="${Y(it.m72)}" stroke="var(--sub)" stroke-dasharray="4 4"/>
+    <text x="${W - R}" y="${Y(it.m72) - 4}" font-size="11" text-anchor="end" fill="var(--sub)">72時間中央値</text>` : '';
+  box.innerHTML = `<svg width="${W}" height="${H}" style="display:block;touch-action:pan-y" id="dSvg">
+      ${grid}${med}<path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.p).toFixed(1)).join('')}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <line id="dCur" y1="${Tp}" y2="${H - B}" stroke="var(--text)" stroke-width="1" opacity=".5"/>
+      <circle id="dDot" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>
+      <rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent" id="dHit"/></svg>
+    <div id="dTip" class="tip"></div>`;
+  const show = p => {
+    ['x1', 'x2'].forEach(a => document.getElementById('dCur').setAttribute(a, X(p.t)));
+    document.getElementById('dDot').setAttribute('cx', X(p.t)); document.getElementById('dDot').setAttribute('cy', Y(p.p));
+    document.getElementById('dTip').innerHTML = `<b>${fmtTime(p.t)}</b>　最安値 <b>${yen(p.p)}</b>　出品 ${p.l}件`;
+  };
+  const hit = document.getElementById('dHit');
+  const near = ev => {
+    const r = hit.getBoundingClientRect(), x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left + L;
+    const t = start + (x - L) / (W - L - R) * (end - start);
+    return pts.reduce((a, b) => Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a);
+  };
+  ['pointermove', 'pointerdown'].forEach(n => hit.addEventListener(n, ev => show(near(ev))));
+  hit.addEventListener('touchmove', ev => show(near(ev)), { passive: true });
+  show(pts.at(-1));
+  const avg = ys.reduce((a, b) => a + b, 0) / ys.length;
+  const lowP = pts.find(p => p.p === lo), highP = pts.find(p => p.p === hi);
+  document.getElementById('dStats').innerHTML = `<table>
+    <tr><td>期間のはじめ → 今</td><td>${yen(pts[0].p)} → ${yen(pts.at(-1).p)}（${pct(pts.at(-1).p / pts[0].p - 1)}）</td></tr>
+    <tr><td>期間の最安</td><td>${yen(lo)}（${fmtTime(lowP.t)}）</td></tr>
+    <tr><td>期間の最高</td><td>${yen(hi)}（${fmtTime(highP.t)}）</td></tr>
+    <tr><td>期間の平均</td><td>${yen(avg)}</td></tr></table>`;
+}
+
+// ---------- 一覧 ----------
+const FALL = -0.10, RISE = 0.10;
+function trendTag(i) {
+  if (i.c24 != null && i.c24 <= FALL) return '<span class="tag down">下落中</span>';
+  if (i.c24 != null && i.c24 >= RISE) return '<span class="tag up">上昇中</span>';
+  return '';
+}
+const badgeY = v => v == null ? '-' : `<span class="badge ${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${yen(v)}</span>`;
+const chg = v => v == null ? '<span>-</span>' : `<span class="${v >= 0 ? 'upc' : 'dnc'}">${v >= 0 ? '▲' : '▼'}${pct(Math.abs(v)).replace('+', '')}</span>`;
+function itemCard(i) {
+  return `<div class="item" data-k="${i.k}">
+    <div class="name">${esc(i.ja)}${trendTag(i)}</div><div class="price">${yen(i.now)}</div>
+    <div class="sub">${esc(i.cat)}・出品${i.lst}</div><div class="right">24h ${chg(i.c24)}　7日 ${chg(i.c7)}</div>
+    ${spark(i.k)}</div>`;
+}
+
+// ---------- ほしい物（この端末のブラウザに保存） ----------
+const WKEY = 'aion2-guild-watch';
+const loadW = () => { try { return JSON.parse(localStorage.getItem(WKEY) || '[]'); } catch (e) { return []; } };
+const saveW = l => { try { localStorage.setItem(WKEY, JSON.stringify(l)); return true; } catch (e) { return false; } };
+const wantHit = w => { const i = byKey[w.k]; return i && i.now <= w.target; };
+const guide = i => `今 ${yen(i.now)}・買い時の目安 ${yen(i.q20)}・1週間の最安 ${yen(i.mn)}`;
+function addWatch(i, target) {
+  const l = loadW().filter(w => w.k !== i.k);
+  l.push({ k: i.k, name: i.ja, target: +target });
+  if (!saveW(l)) throw new Error('この端末では保存できませんでした（プライベートブラウズなど）');
+}
+
+const views = {
+  moves() {
+    const m = D.items.filter(i => i.c24 != null && i.lst >= 10);  // 出品が少ない品は極端な出品1つで値段が跳ねるので外す
+    const up = [...m].sort((a, b) => b.c24 - a.c24).slice(0, 15), dn = [...m].sort((a, b) => a.c24 - b.c24).slice(0, 15);
+    return `<p class="note">24時間で大きく動いた品（出品10件以上）。タップすると値動きのグラフが見られます。</p>
+      <div class="sec-title">▲ 値上がり</div><div class="list">${up.map(itemCard).join('')}</div>
+      <div class="sec-title">▼ 値下がり</div><div class="list">${dn.map(itemCard).join('')}</div>`;
+  },
+  all() {
+    return `<div class="controls">
+        <input id="q" type="search" placeholder="品目名で検索（例：オード）" value="${esc(state.q)}">
+        <select id="sec"><option value="">すべての分類</option>${Object.entries(SEC).map(([k, v]) => `<option value="${k}" ${state.sec === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <select id="sort">${[['c24', '24時間の変化'], ['c7', '7日間の変化'], ['now', '値段'], ['lst', '出品数'], ['ja', '名前']].map(([k, v]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${v}順</option>`).join('')}</select>
+      </div><div class="list" id="allList"></div>`;
+  },
+  watch() {
+    const rows = loadW().map(w => ({ w, i: byKey[w.k] }))
+      .sort((a, b) => (wantHit(b.w) - wantHit(a.w)) || ((a.i ? a.i.now / a.w.target : 9) - (b.i ? b.i.now / b.w.target : 9)));
+    return `<div class="rule"><b>ほしい物と目標の値段を登録すると、目標まで下がったときに「買い時」と表示します</b>
+        登録はこの端末（このブラウザ）だけに保存されます。ほかの人からは見えません。<br>
+        目標に迷ったら「買い時の目安」（直近3日間の値段のうち、安い方から20%の値段）を参考にしてください。</div>
+      <div class="form">
+        <label>品目<input id="wItem" list="itemNames" placeholder="品目名を入力"></label>
+        <div class="note" style="margin:0" id="wHint"></div>
+        <div class="row2"><label>目標の値段（1個）<input id="wTarget" type="number" inputmode="numeric"></label>
+          <label>&nbsp;<button class="btn" id="wAdd">登録する</button></label></div>
+        <div class="msg" id="wMsg"></div></div>
+      <datalist id="itemNames">${D.items.map(i => `<option value="${esc(i.ja)}">`).join('')}</datalist>
+      <div class="list">${rows.map(({ w, i }) => {
+        const hit = wantHit(w), gap = i ? (i.now - w.target) / i.now : null;
+        return `<div class="item" ${i ? `data-k="${i.k}"` : 'style="cursor:default"'}>
+          <div class="name">${esc(w.name)}${hit ? '<span class="tag up">買い時</span>' : ''}${i ? trendTag(i) : ''}</div><div class="price">今 ${i ? yen(i.now) : '出品なし'}</div>
+          <div class="sub">目標 ${yen(w.target)}</div><div class="right">${hit ? '<b>目標以下です</b>' : gap == null ? '-' : `あと ${yen(i.now - w.target)}（今より${(gap * 100).toFixed(1)}%）下がったら`}</div>
+          ${i ? `<div class="sub" style="grid-column:1/-1">${guide(i)}</div>` : ''}
+          <div class="actions"><button class="btn small ghost" data-act="wdel" data-k="${w.k}">外す</button></div></div>`;
+      }).join('') || '<div class="empty">まだ登録がありません</div>'}</div>`;
+  },
+  craft() {
+    return `<p class="note">製作して売る場合（製作熟練度100が前提、Aion2Marketの試算）。費用は大成功を重ねて最上位を1個作るまでの平均です。製作の種類は英語名からの訳です。</p>
+      <table><tr><th>製作品</th><th>費用</th><th>最安値</th><th>手残り</th></tr>
+      ${D.crafts.map(c => `<tr><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}</div></td><td>${yen(c[2])}</td><td>${yen(c[3])}</td><td>${badgeY(c[5])}</td></tr>`).join('')}</table>
+      <p class="note" style="margin-top:8px">手残り＝最安値で売れた場合に、販売手数料10%と出品手数料2%を引いた額 − 費用。</p>`;
+  },
+};
+
+const TABS = [['moves', '急変動'], ['all', '全相場'], ['watch', 'ほしい物'], ['craft', '製作']];
+const state = { tab: 'moves', q: '', sec: '', sort: 'c24', range: 72 };
+try { Object.assign(state, JSON.parse(localStorage.getItem('aion2-guild-ui') || '{}')); } catch (e) {}
+if (!views[state.tab]) state.tab = 'moves';
+const save = () => { try { localStorage.setItem('aion2-guild-ui', JSON.stringify(state)); } catch (e) {} };
+
+function renderAll() {
+  const q = state.q.trim().toLowerCase(), s = state.sort;
+  const list = D.items.filter(i => (!state.sec || i.sec === state.sec) && (!q || i.ja.toLowerCase().includes(q) || i.en.toLowerCase().includes(q)))
+    .sort((a, b) => s === 'ja' ? a.ja.localeCompare(b.ja, 'ja') : (b[s] ?? -Infinity) - (a[s] ?? -Infinity));
+  document.getElementById('allList').innerHTML = list.slice(0, 200).map(itemCard).join('') +
+    (list.length > 200 ? `<div class="empty">ほか${list.length - 200}件。検索で絞り込んでください</div>` : '') +
+    (list.length ? '' : '<div class="empty">見つかりません</div>');
+}
+function render() {
+  const hits = loadW().filter(wantHit).length;
+  document.getElementById('tabs').innerHTML = TABS.map(([k, v]) => `<button class="${state.tab === k ? 'on' : ''}" data-tab="${k}">${v}${k === 'watch' && hits ? ` <span class="badge pos">買い時${hits}</span>` : ''}</button>`).join('');
+  document.getElementById('main').innerHTML = views[state.tab]();
+  if (state.tab === 'all') {
+    renderAll();
+    document.getElementById('q').addEventListener('input', e => { state.q = e.target.value; save(); renderAll(); });
+    document.getElementById('sec').addEventListener('change', e => { state.sec = e.target.value; save(); renderAll(); });
+    document.getElementById('sort').addEventListener('change', e => { state.sort = e.target.value; save(); renderAll(); });
+  }
+  if (state.tab === 'watch') {
+    const wi = document.getElementById('wItem'), wt = document.getElementById('wTarget'), wh = document.getElementById('wHint');
+    wi.addEventListener('input', () => { const i = byName[wi.value.trim()]; wh.textContent = i ? guide(i) : ''; if (i && !wt.value) wt.value = Math.round(i.q20); });
+    document.getElementById('wAdd').addEventListener('click', () => {
+      const m = document.getElementById('wMsg'), i = byName[wi.value.trim()];
+      try {
+        if (!i) throw new Error('品目を一覧から選んでください');
+        if (!(+wt.value > 0)) throw new Error('目標の値段を入れてください');
+        addWatch(i, wt.value); render();
+      } catch (e) { m.className = 'msg err'; m.textContent = e.message; }
+    });
+  }
+}
+
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.tab = b.dataset.tab; save(); render(); window.scrollTo(0, 0);
+});
+document.getElementById('main').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act="wdel"]');
+  if (b) { if (confirm('ほしい物から外しますか？')) { saveW(loadW().filter(w => w.k != b.dataset.k)); render(); } return; }
+  const el = e.target.closest('.item'); if (!el || !el.dataset.k) return;
+  const i = byKey[el.dataset.k];
+  document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
+    <h2>${esc(i.ja)}</h2><div class="note">${esc(i.en)}・${esc(i.cat)}</div>
+    <div class="seg" id="dRange">${RANGES.map(([h, l]) => `<button data-h="${h}">${l}</button>`).join('')}</div>
+    <div id="dChart"></div>
+    <div class="note">グラフをタップ（PCはマウスを乗せる）すると、その時刻の値段が出ます</div>
+    <div id="dStats"></div>
+    <div class="sec-title">いまの状況</div>
+    <table>
+      <tr><td>今の最安値</td><td>${yen(i.now)}</td></tr>
+      <tr><td>出品数</td><td>${i.lst}</td></tr>
+      <tr><td>24時間前</td><td>${yen(i.a24)}（${pct(i.c24)}）</td></tr>
+      <tr><td>7日前</td><td>${yen(i.f7)}（${pct(i.c7)}）</td></tr>
+      <tr><td>直近72時間の中央値</td><td>${yen(i.m72)}</td></tr>
+      <tr><td>買い時の目安（直近3日で安い方から20%）</td><td>${yen(i.q20)}</td></tr>
+    </table>
+    <div class="actions" style="margin-top:10px"><button class="btn small" id="dlgWatch">ほしい物に登録</button></div>`;
+  const dlg = document.getElementById('dlg');
+  dlg.showModal();
+  drawDetail(i.k);
+  document.getElementById('dRange').onclick = ev => { const x = ev.target.closest('button'); if (!x) return; state.range = +x.dataset.h; save(); drawDetail(i.k); };
+  document.getElementById('dlgWatch').onclick = () => {
+    const v = prompt(`目標の値段（1個）\n買い時の目安は ${yen(i.q20)} です`, Math.round(i.q20));
+    if (!v) return;
+    try { addWatch(i, v); dlg.close(); state.tab = 'watch'; save(); render(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('dlgClose').onclick = () => dlg.close();
+});
+document.getElementById('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') e.target.close(); });
+render();
+
+// 新しいデータが出たら読み込み直す（操作中なら知らせるだけ）
+let lastTouch = 0;
+['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, () => { lastTouch = Date.now(); }, true));
+async function checkUpdate() {
+  try {
+    const html = await fetch(location.href, { cache: 'no-store' }).then(r => r.text());
+    const m = html.match(/"capturedIso":"([^"]+)"/);
+    if (!m || m[1] === D.capturedIso) return;
+    const busy = Date.now() - lastTouch < 60000 || document.getElementById('dlg').open || ['INPUT', 'SELECT'].includes(document.activeElement?.tagName);
+    if (!busy) { location.reload(); return; }
+    if (!document.getElementById('newData')) {
+      const b = document.createElement('button');
+      b.id = 'newData'; b.className = 'btn small'; b.style.marginLeft = '8px'; b.textContent = '新しいデータがあります（タップで更新）';
+      b.onclick = () => location.reload();
+      document.getElementById('meta').appendChild(b);
+    }
+  } catch (e) {}
+}
+setInterval(checkUpdate, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+</script>
+</body>
+</html>
