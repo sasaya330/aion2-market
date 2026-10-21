@@ -170,7 +170,8 @@ def main():
         low72 = sorted(p72)
         price = it['price']
         rows.append(dict(
-            k=int(k), ja=names.get(k) or it['name'], en=it['name'], sec=it['category']['section_id'], cat=it['category']['name'],
+            k=int(k), ja=names.get(k) or it['name'] or k, en=it['name'] or '', sec=(it.get('category') or {}).get('section_id') or 'other',
+            cat=(it.get('category') or {}).get('name') or 'Other items',  # 分類が空の品目もある
             now=price, lst=it['listings'], a24=prev[-1] if prev else None, f7=pts[0][1], m72=st.median(p72),
             mn=min(p[1] for p in pts), mx=max(p[1] for p in pts), q20=low72[int(len(low72) * 0.2)],
             c24=(price / prev[-1] - 1) if prev else None, c7=price / pts[0][1] - 1,
