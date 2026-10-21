@@ -66,9 +66,7 @@ def hour_iso(s):
     return t.replace(minute=0, second=0, microsecond=0)
 
 
-def main():
-    history = load_previous('history.json')       # {key: [[UNIX秒(1時間単位), 最安値, 出品数], ...]}
-    names = load_previous('names.json')           # {key: 日本語名}
+def fetch_items():
     items = []
     for sec in SECTIONS:
         off = 0
@@ -79,6 +77,21 @@ def main():
             time.sleep(0.5)
             if off >= j['total'] or not j['items']:
                 break
+    return items
+
+
+def main():
+    history = load_previous('history.json')       # {key: [[UNIX秒(1時間単位), 最安値, 出品数], ...]}
+    names = load_previous('names.json')           # {key: 日本語名}
+    for attempt in range(3):  # 相場サイトがときどき止まるので、少し待って取り直す
+        try:
+            items = fetch_items()
+            break
+        except Exception as e:
+            if attempt == 2:
+                raise
+            print(f'取り込みに失敗、2分後にやり直し: {e}')
+            time.sleep(120)
     captured = max(i['captured_at'] for i in items if i.get('captured_at'))
     now = hour_iso(captured)
     stamp = int(now.timestamp())
