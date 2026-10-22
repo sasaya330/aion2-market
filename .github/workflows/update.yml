@@ -44,7 +44,7 @@ jobs:
       - name: 自動実行が止まらないよう、月1回だけ記録を残す
         run: |
           last=$(git log -1 --format=%ct)
-          if [ $(( $(date +%s) - last )) -gt 2592000 ]; then
+          if [ $(( $(date +%s) - last )) -ge 0 ]; then
             date -u +%Y-%m-%dT%H:%M:%SZ > keepalive.txt
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
