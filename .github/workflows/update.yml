@@ -4,12 +4,12 @@ name: update
 on:
   schedule:
     - cron: '13 * * * *'   # UTC。相場サイトの更新（毎時9分）の少し後
-  workflow_dispatch:        # Actions の画面から手動でも動かせる
+  workflow_dispatch:        # Actions の画面や、本人のPCから手動でも動かせる
   push:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write   # 月1回の記録（keepalive.txt）を残すため
   pages: write
   id-token: write
 
@@ -39,3 +39,18 @@ jobs:
           path: site
       - id: deploy
         uses: actions/deploy-pages@v4
+      # GitHub は、60日間コミットのない公開リポジトリの定時実行を止める。
+      # 最後のコミットから30日たっていたら、日付だけを書いた記録を残して止まらないようにする
+      - name: 自動実行が止まらないよう、月1回だけ記録を残す
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt 2592000 ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > keepalive.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add keepalive.txt
+            git commit -m "自動実行を止めないための定期記録"
+            git push
+          else
+            echo "最後のコミットから30日たっていないので何もしない"
+          fi
