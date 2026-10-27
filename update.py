@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 import statistics as st
 import sys
 import time
@@ -78,6 +79,61 @@ def fetch_items():
             if off >= j['total'] or not j['items']:
                 break
     return items
+
+
+DRAGON_SERIES = [('真龍王', '真龍王の'), ('光る真龍王', '光る真龍王の')]  # (表示名, 品目名の頭)
+
+
+def dragon_recipe(key):
+    """AION 2 データベースの「採取・購入」欄（材料の合計）を読む。[[個数, 品目ID, 名前, 商店価格 or None], ...]"""
+    html = get(f'https://aion2.th.gl/ja/db/inventory/it_{key}', as_json=False, tries=2)
+    i = html.find('採取・購入</h3>')
+    if i < 0:
+        return None
+    seg = html[i:html.find('</ul>', i)]
+    out = []
+    for li in seg.split('<li')[1:]:
+        m = re.search(r'>(\d+)<!-- -->×</span>.*?it_(\d+)">([^<]+)</a>', li, re.S)
+        if not m:
+            continue
+        shop = re.search(r'· ([\d,]+) Kina', li)
+        out.append([int(m.group(1)), m.group(2), unescape(m.group(3)), int(shop.group(1).replace(',', '')) if shop else None])
+    return out or None
+
+
+def dragon_rows(names, price_of, craft_cost, previous, refresh):
+    """真龍王・光る真龍王シリーズの材料費。レシピは6時間ごとに読み直し、値段は毎時の相場で計算する。"""
+    recipes = {}
+    if refresh or not previous:
+        for label, head in DRAGON_SERIES:
+            for k, nm in names.items():
+                if nm.startswith(head):
+                    try:
+                        r = dragon_recipe(k)
+                    except Exception:
+                        r = None
+                    if r:
+                        recipes[k] = r
+                    time.sleep(0.3)
+    recipes = recipes or dict(previous)  # 読み直せなかったときは前回の分
+    rows = []
+    for k, mats in recipes.items():
+        nm = names.get(k, k)
+        series = next((lb for lb, head in reversed(DRAGON_SERIES) if nm.startswith(head)), '')
+        total, known, detail = 0, True, []
+        for qty, mk, mname, shop in mats:
+            cands = [(price_of.get(mk), '取引所'), (shop, '商店'), (craft_cost.get(mk), '製作')]
+            cands = [(p, src) for p, src in cands if p]
+            unit, src = min(cands) if cands else (None, '不明')
+            known = known and unit is not None
+            total += (unit or 0) * qty
+            detail.append([names.get(mk) or mname, qty, unit, src, round((unit or 0) * qty)])
+        mp = price_of.get(k)
+        net = mp * (1 - SELL_FEE - LIST_FEE) - total if (mp and known) else None
+        rows.append(dict(key=k, name=nm, series=series, cost=round(total), complete=known, price=mp,
+                         net=round(net) if net is not None else None, mats=detail))
+    rows.sort(key=lambda r: (r['series'], r['name']))
+    return recipes, rows
 
 
 def main():
@@ -187,10 +243,13 @@ def main():
                            round(t['cost']), mp, t.get('listings'), round(net) if net is not None else None,
                            str(t['target_key'])])
     craft_rows.sort(key=lambda r: r[5] if r[5] is not None else -1e18, reverse=True)
+    price_of = {str(i['item_key']): i['price'] for i in items if i['listed'] and i['price']}
+    craft_cost = {str(t['target_key']): t['cost'] for t in crafts.get('targets', [])}
+    dragon_recipes, dragon = dragon_rows(names, price_of, craft_cost, load_previous('dragon.json'), refresh)
 
     data = dict(stamp=now.astimezone(JST).strftime('%m/%d %H:%M'), built=datetime.now(JST).strftime('%m/%d %H:%M'),
                 capturedIso=now.strftime('%Y-%m-%dT%H:%M:%SZ'), t0Iso=t0.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                items=rows, hist=hist_out, crafts=craft_rows, craftDetail=details)
+                items=rows, hist=hist_out, crafts=craft_rows, craftDetail=details, dragon=dragon)
     html = (BASE / 'template.html').read_text(encoding='utf-8')
     html = html.replace('/*DATA*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/'))
     icon = BASE / 'icon64.b64'
@@ -203,6 +262,7 @@ def main():
     (SITE / 'history.json').write_text(json.dumps(history, separators=(',', ':')), encoding='utf-8')
     (SITE / 'names.json').write_text(json.dumps(names, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     (SITE / 'crafts.json').write_text(json.dumps(details, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    (SITE / 'dragon.json').write_text(json.dumps(dragon_recipes, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print(f'ok data={data["stamp"]} items={len(rows)} names+={len(missing)}')
 
 
