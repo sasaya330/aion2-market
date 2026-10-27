@@ -116,11 +116,23 @@ def dragon_rows(names, price_of, craft_cost, previous, refresh):
                         recipes[k] = r
                     time.sleep(0.3)
     recipes = recipes or dict(previous)  # 読み直せなかったときは前回の分
-    rows = []
-    for k, mats in recipes.items():
+    rows, base_cost = [], {}
+    # 真龍王を先に計算する。光る真龍王は「移し替え製作」で真龍王本体を土台に使うため、
+    # データベースのレシピに無い本体の値段を足す（調査: ~/research/aion2-true-dragon-lord-craft）
+    for k, mats in sorted(recipes.items(), key=lambda kv: names.get(kv[0], '').startswith('光る')):
         nm = names.get(k, k)
         series = next((lb for lb, head in reversed(DRAGON_SERIES) if nm.startswith(head)), '')
         total, known, detail = 0, True, []
+        if series == '光る真龍王':
+            base_name = nm[len('光る'):]
+            base = base_cost.get(base_name)
+            if base:
+                unit, src = base
+                detail.append([f'{base_name}（移し替えの土台）', 1, unit, src, round(unit)])
+                total += unit
+            else:
+                known = False
+                detail.append([f'{base_name}（移し替えの土台）', 1, None, '不明', 0])
         for qty, mk, mname, shop in mats:
             cands = [(price_of.get(mk), '取引所'), (shop, '商店'), (craft_cost.get(mk), '製作')]
             cands = [(p, src) for p, src in cands if p]
@@ -129,6 +141,10 @@ def dragon_rows(names, price_of, craft_cost, previous, refresh):
             total += (unit or 0) * qty
             detail.append([names.get(mk) or mname, qty, unit, src, round((unit or 0) * qty)])
         mp = price_of.get(k)
+        if series == '真龍王':  # 光る真龍王の土台にするときは、取引所で買うか作るかの安い方
+            cands = [(c, s) for c, s in [(mp, '取引所'), (total if known else None, '材料から作る')] if c]
+            if cands:
+                base_cost[nm] = min(cands)
         net = mp * (1 - SELL_FEE - LIST_FEE) - total if (mp and known) else None
         rows.append(dict(key=k, name=nm, series=series, cost=round(total), complete=known, price=mp,
                          net=round(net) if net is not None else None, mats=detail))

@@ -332,9 +332,9 @@ const views = {
     const dragonTable = series => {
       const rows = (D.dragon || []).filter(r => r.series === series);
       if (!rows.length) return '';
-      const warn = series === '光る真龍王' ? `<div class="rule" style="margin-bottom:6px"><b>⚠ 材料費は安く出ている可能性があります</b>
-        データベースのレシピでは、元になる「真龍王」本体が材料に入っていません。「光る」は製作の大成功で出る上位版の名前でもあるため、
-        実際は真龍王を作るときの大成功でしか手に入らない可能性があります。ゲーム内の製作画面で確かめてから判断してください。</div>` : '';
+      const warn = series === '光る真龍王' ? `<div class="rule" style="margin-bottom:6px"><b>光る真龍王の手に入れ方は2つ</b>
+        ① 真龍王を作ったときの大成功（約25%）で出る。② 真龍王を土台にして「移し替え製作」で作る（強化値と刻印は引き継がれる）。
+        下の材料費は②で、真龍王本体（取引所で買うか作るかの安い方）＋移し替えの材料です。` : `<div class="note">真龍王の成功率の例：ネックレスは熟練度の差が0のとき67.5%（熟練度を上げると上がる）。失敗すると材料はなくなります。</div>`;
       return `<div class="sec-title">${esc(series)}シリーズ</div>${warn}
         <table><tr><th>製作品</th><th>材料費</th><th>最安値</th><th>手残り</th></tr>
         ${rows.map(r => `<tr data-dragon="${r.key}" style="cursor:pointer"><td>${esc(r.name)}<div class="note" style="margin:0">${r.complete ? '' : '材料の値段が一部不明・'}<u>材料を見る</u></div></td>
@@ -348,7 +348,7 @@ const views = {
       ${dragonTable('真龍王')}
       ${dragonTable('光る真龍王')}
       <p class="note" style="margin-top:8px">真龍王・光る真龍王シリーズの材料費は、AION 2 データベースのレシピ（材料の合計）と今の相場から計算しています。
-        材料ごとに「取引所の最安値・商店の値段・製作費（Aion2Marketの試算）」の安い方を使います。成功率や大成功は、データがないため含めていません。
+        材料ごとに「取引所の最安値・商店の値段・製作費（Aion2Marketの試算）」の安い方を使います。真龍王の材料費は1回成功した場合で、失敗の分は含めていません。
         レシピはデータベースの表示どおりで、ゲーム内と違う場合があります。</p>`;
   },
 };
@@ -457,7 +457,7 @@ function openCraft(key) {
   dlg.showModal();
   document.getElementById('dlgClose').onclick = () => dlg.close();
 }
-const SRC = { '取引所': '取引所の最安値', '商店': '商店で買う', '製作': '製作費（試算）', '不明': '値段不明' };
+const SRC = { '取引所': '取引所の最安値', '商店': '商店で買う', '製作': '製作費（試算）', '材料から作る': '材料から作った場合', '不明': '値段不明' };
 function openDragon(key) {
   const r = (D.dragon || []).find(x => x.key === key);
   if (!r) return;
@@ -467,7 +467,8 @@ function openDragon(key) {
     <div class="scroll"><table class="grid"><tr><th>材料</th><th>数</th><th>単価</th><th>小計</th><th>値段の出どころ</th></tr>
     ${r.mats.map(m => `<tr><td>${esc(m[0])}</td><td>${m[1]}</td><td>${yen(m[2])}</td><td>${yen(m[4])}</td><td style="text-align:left">${esc(SRC[m[3]] || m[3])}</td></tr>`).join('')}
     </table></div>
-    <p class="note" style="margin-top:8px">材料の合計はAION 2 データベースの表示どおりです（途中で作る中間素材は、その材料に分解して数えています）。成功率・大成功は含めていません。</p>`;
+    ${r.series === '真龍王' ? `<p class="note" style="margin-top:8px">失敗も含めた平均の目安：成功率67.5%なら 約${yen(r.cost / 0.675)}（成功率はネックレスの値。部位や熟練度で変わります）。作るたびに約25%の確率で大成功し、光る真龍王になります。</p>` : ''}
+    <p class="note" style="margin-top:8px">材料の合計はAION 2 データベースの表示どおりです（途中で作る中間素材は、その材料に分解して数えています）。${r.series === '光る真龍王' ? '1行目の真龍王本体は、データベースのレシピには載っていない「移し替えの土台」です。' : ''}</p>`;
   const dlg = document.getElementById('dlg');
   dlg.showModal();
   document.getElementById('dlgClose').onclick = () => dlg.close();
