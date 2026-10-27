@@ -81,75 +81,103 @@ def fetch_items():
     return items
 
 
-DRAGON_SERIES = [('真龍王', '真龍王の'), ('光る真龍王', '光る真龍王の')]  # (表示名, 品目名の頭)
+# 真龍王から光る冥龍王までの6段。上の段は「移し替え製作」で、前の段の品を土台にして作り直す（失敗しない・強化値と刻印は引き継ぐ）。
+# 土台の組み合わせは AllThings.How の段の順（真→光る真→白→冥→光る冥）による。光る白龍王は光る真龍王と同じ形（白龍王が土台）と推定。
+# データベースのレシピには土台が載っていないので、計算で足す（調査: ~/research/aion2-true-dragon-lord-craft）
+DRAGON_TIERS = [('真龍王', '01'), ('光る真龍王', '11'), ('白龍王', '12'), ('光る白龍王', '13'), ('冥龍王', '14'), ('光る冥龍王', '15')]
+DRAGON_BASE = {'光る真龍王': '真龍王', '白龍王': '光る真龍王', '光る白龍王': '白龍王', '冥龍王': '白龍王', '光る冥龍王': '冥龍王'}
+THGL = 'https://aion2.th.gl/ja/db'
 
 
-def dragon_recipe(key):
+def gather_list(html):
     """AION 2 データベースの「採取・購入」欄（材料の合計）を読む。[[個数, 品目ID, 名前, 商店価格 or None], ...]"""
-    html = get(f'https://aion2.th.gl/ja/db/inventory/it_{key}', as_json=False, tries=2)
     i = html.find('採取・購入</h3>')
     if i < 0:
         return None
-    seg = html[i:html.find('</ul>', i)]
     out = []
-    for li in seg.split('<li')[1:]:
+    for li in html[i:html.find('</ul>', i)].split('<li')[1:]:
         m = re.search(r'>(\d+)<!-- -->×</span>.*?it_(\d+)">([^<]+)</a>', li, re.S)
-        if not m:
-            continue
-        shop = re.search(r'· ([\d,]+) Kina', li)
-        out.append([int(m.group(1)), m.group(2), unescape(m.group(3)), int(shop.group(1).replace(',', '')) if shop else None])
+        if m:
+            shop = re.search(r'· ([\d,]+) Kina', li)
+            out.append([int(m.group(1)), m.group(2), unescape(m.group(3)), int(shop.group(1).replace(',', '')) if shop else None])
     return out or None
 
 
-def dragon_rows(names, price_of, craft_cost, previous, refresh):
-    """真龍王・光る真龍王シリーズの材料費。レシピは6時間ごとに読み直し、値段は毎時の相場で計算する。"""
-    recipes = {}
-    if refresh or not previous:
-        for label, head in DRAGON_SERIES:
-            for k, nm in names.items():
-                if nm.startswith(head):
-                    try:
-                        r = dragon_recipe(k)
-                    except Exception:
-                        r = None
-                    if r:
-                        recipes[k] = r
-                    time.sleep(0.3)
-    recipes = recipes or dict(previous)  # 読み直せなかったときは前回の分
-    rows, base_cost = [], {}
-    # 真龍王を先に計算する。光る真龍王は「移し替え製作」で真龍王本体を土台に使うため、
-    # データベースのレシピに無い本体の値段を足す（調査: ~/research/aion2-true-dragon-lord-craft）
-    for k, mats in sorted(recipes.items(), key=lambda kv: names.get(kv[0], '').startswith('光る')):
-        nm = names.get(k, k)
-        series = next((lb for lb, head in reversed(DRAGON_SERIES) if nm.startswith(head)), '')
+def dragon_recipes(true_key):
+    """真龍王の1部位について、6段のレシピを読む。{品目ID: {name, series, mats}}
+    レシピの番号は、真龍王が末尾01、光る真龍王〜光る冥龍王が11〜15の順に並んでいる。"""
+    page = get(f'{THGL}/inventory/it_{true_key}', as_json=False, tries=2)
+    rid = next((r for r in re.findall(r'/ja/db/recipes/r_(\d+)"', page) if r.endswith('01')), None)
+    out = {}
+    for series, tail in DRAGON_TIERS if rid else []:
+        time.sleep(0.3)
+        try:
+            html = get(f'{THGL}/recipes/r_{rid[:-2]}{tail}', as_json=False, tries=2)
+        except Exception:
+            continue
+        prod = re.search(r'生産物.*?<a title="([^"]+)"[^>]*it_(\d+)"', html, re.S)
+        mats = gather_list(html)
+        name = unescape(prod.group(1)) if prod else ''
+        if mats and name.startswith(series + 'の'):  # 番号の並びが違う部位は取り込まない
+            out[prod.group(2)] = dict(name=name, series=series, mats=mats)
+    return out
+
+
+def dragon_costs(recipes, names, price_of, craft_cost):
+    """6段の材料費を今の相場で計算する。上の段は、土台（前の段を取引所で買うか作るかの安い方）の値段を足す。"""
+    order = {s: n for n, (s, _) in enumerate(DRAGON_TIERS)}
+    rows, best = [], {}
+    for k, r in sorted(recipes.items(), key=lambda kv: order.get(kv[1]['series'], 99)):
+        series, nm = r['series'], r['name']
+        base_name = DRAGON_BASE[series] + nm[len(series):] if series in DRAGON_BASE else None
         total, known, detail = 0, True, []
-        if series == '光る真龍王':
-            base_name = nm[len('光る'):]
-            base = base_cost.get(base_name)
+        if base_name:
+            base = best.get(base_name)
             if base:
-                unit, src = base
-                detail.append([f'{base_name}（移し替えの土台）', 1, unit, src, round(unit)])
-                total += unit
+                detail.append([f'{base_name}（移し替えの土台）', 1, base[0], base[1], round(base[0])])
+                total += base[0]
             else:
                 known = False
                 detail.append([f'{base_name}（移し替えの土台）', 1, None, '不明', 0])
-        for qty, mk, mname, shop in mats:
-            cands = [(price_of.get(mk), '取引所'), (shop, '商店'), (craft_cost.get(mk), '製作')]
-            cands = [(p, src) for p, src in cands if p]
+        for qty, mk, mname, shop in r['mats']:
+            cands = [(p, src) for p, src in [(price_of.get(mk), '取引所'), (shop, '商店'), (craft_cost.get(mk), '製作')] if p]
             unit, src = min(cands) if cands else (None, '不明')
             known = known and unit is not None
             total += (unit or 0) * qty
             detail.append([names.get(mk) or mname, qty, unit, src, round((unit or 0) * qty)])
         mp = price_of.get(k)
-        if series == '真龍王':  # 光る真龍王の土台にするときは、取引所で買うか作るかの安い方
-            cands = [(c, s) for c, s in [(mp, '取引所'), (total if known else None, '材料から作る')] if c]
-            if cands:
-                base_cost[nm] = min(cands)
+        cands = [(c, s) for c, s in [(mp, '取引所'), (total if known else None, '材料から作る')] if c]
+        if cands:
+            best[nm] = min(cands)
         net = mp * (1 - SELL_FEE - LIST_FEE) - total if (mp and known) else None
-        rows.append(dict(key=k, name=nm, series=series, cost=round(total), complete=known, price=mp,
+        rows.append(dict(key=k, name=nm, series=series, base=base_name, cost=round(total), complete=known, price=mp,
                          net=round(net) if net is not None else None, mats=detail))
-    rows.sort(key=lambda r: (r['series'], r['name']))
-    return recipes, rows
+    rows.sort(key=lambda r: (order.get(r['series'], 99), r['name']))
+    return rows
+
+
+def fetch_dragon(names):
+    """名前が「真龍王の」で始まる品目（取引所に出たことのある部位）ごとに、6段のレシピを読む。"""
+    out = {}
+    for k, nm in names.items():
+        if nm.startswith('真龍王の'):
+            try:
+                out.update(dragon_recipes(k))
+            except Exception:
+                pass
+    return out
+
+
+def is_current(recipes):
+    """6段に広げる前の形（品目ID→材料の一覧）で保存された分は使わない。"""
+    return bool(recipes) and all(isinstance(v, dict) for v in recipes.values())
+
+
+def dragon_rows(names, price_of, craft_cost, previous, refresh):
+    """レシピは6時間ごとに読み直し、値段は毎時の相場で計算する。"""
+    recipes = fetch_dragon(names) if refresh or not is_current(previous) else {}
+    recipes = recipes or (dict(previous) if is_current(previous) else {})  # 読み直せなかったときは前回の分
+    return recipes, dragon_costs(recipes, names, price_of, craft_cost)
 
 
 def main():
