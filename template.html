@@ -83,6 +83,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .seg button { flex: 1; font: inherit; font-size: 13px; padding: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer; }
 .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .tip { font-size: 13px; padding: 6px 8px; background: var(--chip); border-radius: 8px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.plink { border: 0; background: none; color: var(--accent); padding: 0; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; }
 .star { border: 0; background: none; color: var(--sub); font-size: 17px; line-height: 1; padding: 0 6px 0 0; cursor: pointer; vertical-align: -1px; }
 .star.on { color: #eab308; }
 .scroll { overflow-x: auto; }
@@ -436,45 +437,56 @@ document.getElementById('main').addEventListener('click', e => {
 });
 document.getElementById('dlg').addEventListener('click', e => {
   const f = e.target.closest('button[data-act="fav"]');
-  if (f) { toggleFav(f.dataset.k); refreshStars(f.dataset.k); if (state.tab === 'fav') render(); }
+  if (f) { toggleFav(f.dataset.k); refreshStars(f.dataset.k); if (state.tab === 'fav') render(); return; }
+  const ch = e.target.closest('button[data-chart]'); if (ch) openDetail(byKey[ch.dataset.chart], dlgBack);
 });
 const METHOD = { buy: '取引所で買う', craft: '材料から作る', morph: '物質変換' };
+const byJa = Object.fromEntries(D.items.map(i => [i.ja, i]));
+// 内訳から値動きのグラフへ移ったとき、「← 内訳」で戻る先
+let dlgBack = null;
+const plink = name => {
+  const i = byJa[name.replace('（移し替えの土台）', '')];
+  return i ? `<button class="plink" data-chart="${i.k}">${esc(name)} 📈</button>` : esc(name);
+};
+const chartBtn = k => byKey[k] ? `<div class="actions" style="margin:6px 0"><button class="btn small" data-chart="${k}">この品の値動きを見る 📈</button></div>` : '';
 function openCraft(key) {
+  dlgBack = () => openCraft(key);
   const c = D.crafts.find(x => x[6] === key), steps = (D.craftDetail || {})[key];
   if (!c || !steps) return;
   const pctx = v => v == null ? '-' : Math.round(v * 100) + '%';
   document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
-    <h2>${esc(c[0])}</h2>
+    <h2>${esc(c[0])}</h2>${chartBtn(key)}
     <div class="note">${esc(c[1])}・製作熟練度100が前提・費用合計 ${yen(c[2])}（取引所の最安値 ${yen(c[3])}）</div>
     <div class="rule">大成功（次の段階の品ができる）を重ねて、最後の品を1個作るまでの<b style="display:inline">平均</b>です。運が悪いと何倍もかかります。</div>
     ${steps.map((s, n) => `<div class="sec-title">${n + 1}. ${esc(s.name)} を約${Math.round(s.attempts)}回作る（費用 ${yen(s.cost)}）</div>
       <div class="note">成功率 ${pctx(s.success)}・大成功 ${pctx(s.combo)}${s.mastery ? '・必要熟練度 ' + s.mastery : ''}</div>
       <div class="scroll"><table class="grid"><tr><th>材料</th><th>1回</th><th>合計</th><th>単価</th><th>小計</th><th>手に入れ方</th></tr>
-      ${s.mats.map(m => `<tr><td>${esc(m.name)}</td><td>${m.per ?? '-'}</td><td>${m.exp == null ? '-' : Math.round(m.exp)}</td><td>${yen(m.unit)}</td><td>${yen(m.sub)}</td>
+      ${s.mats.map(m => `<tr><td>${plink(m.name)}</td><td>${m.per ?? '-'}</td><td>${m.exp == null ? '-' : Math.round(m.exp)}</td><td>${yen(m.unit)}</td><td>${yen(m.sub)}</td>
         <td style="text-align:left">${esc(METHOD[m.method] || m.method || '')}${m.via && m.via.filter(Boolean).length ? '（' + m.via.filter(Boolean).map(esc).join('・') + 'から）' : ''}</td></tr>`).join('')}
       </table></div>`).join('')}`;
   const dlg = document.getElementById('dlg');
-  dlg.showModal();
+  if (!dlg.open) dlg.showModal();
   document.getElementById('dlgClose').onclick = () => dlg.close();
 }
 const SRC = { '取引所': '取引所の最安値', '商店': '商店で買う', '製作': '製作費（試算）', '材料から作る': '材料から作った場合', '不明': '値段不明' };
 function openDragon(key) {
+  dlgBack = () => openDragon(key);
   const r = (D.dragon || []).find(x => x.key === key);
   if (!r) return;
   document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
-    <h2>${esc(r.name)}</h2>
+    <h2>${esc(r.name)}</h2>${chartBtn(key)}
     <div class="note">材料費 ${yen(r.cost)}${r.complete ? '' : '（値段不明の材料あり）'}・取引所の最安値 ${r.price ? yen(r.price) : '出品なし'}</div>
     <div class="scroll"><table class="grid"><tr><th>材料</th><th>数</th><th>単価</th><th>小計</th><th>値段の出どころ</th></tr>
-    ${r.mats.map(m => `<tr><td>${esc(m[0])}</td><td>${m[1]}</td><td>${yen(m[2])}</td><td>${yen(m[4])}</td><td style="text-align:left">${esc(SRC[m[3]] || m[3])}</td></tr>`).join('')}
+    ${r.mats.map(m => `<tr><td>${plink(m[0])}</td><td>${m[1]}</td><td>${yen(m[2])}</td><td>${yen(m[4])}</td><td style="text-align:left">${esc(SRC[m[3]] || m[3])}</td></tr>`).join('')}
     </table></div>
     ${r.series === '真龍王' ? `<p class="note" style="margin-top:8px">失敗も含めた平均の目安：成功率67.5%なら 約${yen(r.cost / 0.675)}（成功率はネックレスの値。部位や熟練度で変わります）。作るたびに約25%の確率で大成功し、光る真龍王になります。</p>` : ''}
     <p class="note" style="margin-top:8px">材料の合計はAION 2 データベースの表示どおりです（途中で作る中間素材は、その材料に分解して数えています）。${r.series === '光る真龍王' ? '1行目の真龍王本体は、データベースのレシピには載っていない「移し替えの土台」です。' : ''}</p>`;
   const dlg = document.getElementById('dlg');
-  dlg.showModal();
+  if (!dlg.open) dlg.showModal();
   document.getElementById('dlgClose').onclick = () => dlg.close();
 }
-function openDetail(i) {
-  document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>
+function openDetail(i, back) {
+  document.getElementById('dlgBody').innerHTML = `<button class="close" id="dlgClose">閉じる</button>${back ? '<button class="close" id="dlgBack" style="float:left;margin-right:8px">← 内訳</button>' : ''}
     <h2>${star(i.k)}${esc(i.ja)}</h2><div class="note">${esc(i.en)}・${esc(i.cat)}</div>
     <div class="seg" id="dRange">${RANGES.map(([h, l]) => `<button data-h="${h}">${l}</button>`).join('')}</div>
     <div id="dChart"></div>
@@ -491,7 +503,7 @@ function openDetail(i) {
     </table>
     <div class="actions" style="margin-top:10px"><button class="btn small" id="dlgWatch">ほしい物に登録</button></div>`;
   const dlg = document.getElementById('dlg');
-  dlg.showModal();
+  if (!dlg.open) dlg.showModal();
   drawDetail(i.k);
   document.getElementById('dRange').onclick = ev => { const x = ev.target.closest('button'); if (!x) return; state.range = +x.dataset.h; save(); drawDetail(i.k); };
   document.getElementById('dlgWatch').onclick = () => {
@@ -500,6 +512,7 @@ function openDetail(i) {
     try { addWatch(i, v); dlg.close(); state.tab = 'watch'; save(); render(); } catch (err) { alert(err.message); }
   };
   document.getElementById('dlgClose').onclick = () => dlg.close();
+  if (back) document.getElementById('dlgBack').onclick = back;
 }
 document.getElementById('dlg').addEventListener('click', e => { if (e.target.id === 'dlg') e.target.close(); });
 render();
