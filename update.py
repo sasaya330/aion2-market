@@ -173,6 +173,33 @@ def is_current(recipes):
     return bool(recipes) and all(isinstance(v, dict) for v in recipes.values())
 
 
+def step_rows(details, price_of, key_of):
+    """下のレア度の製作を、1回作るごとの損得で見る（個人用アプリの collector.py と同じ計算）。
+    1段目は普通の品ができ、大成功（約25%）なら光る品。2段目からは前の段の光る品を土台にして、
+    職人の〜（大成功で職人の光る〜）、達人の〜（大成功で達人の光る〜）ができる。
+    失敗すると材料と土台はなくなる（Aion2Market の試算と同じ前提）。"""
+    keep = 1 - SELL_FEE - LIST_FEE
+    out = []
+    for top, steps in details.items():
+        for n, s in enumerate(steps):
+            if not s.get('attempts') or 'key' not in s:
+                continue  # 古い形の控え（段の品目IDが無い）
+            plain = s['name'].replace('光る', '', 1)
+            pp, ps = price_of.get(key_of.get(plain)), price_of.get(str(s['key']))
+            base = None
+            if n:
+                b = steps[n - 1]
+                base = price_of.get(str(b.get('key'))) or b.get('tcost')  # 土台は、取引所の最安値か、作った場合の平均費用
+            cost = s['cost'] / s['attempts'] + (base or 0)
+            ev = (s.get('success') or 0) * ((1 - (s.get('combo') or 0)) * (pp or 0) + (s.get('combo') or 0) * (ps or 0)) * keep
+            cost_ok, ev_ok = not n or base is not None, bool(pp and ps)
+            out.append(dict(tier=n + 1, top=top, name=plain, shiny=s['name'], base=steps[n - 1]['name'] if n else None,
+                            pk=key_of.get(plain), sk=str(s['key']), pp=pp, ps=ps, success=s.get('success'), combo=s.get('combo'),
+                            cost=round(cost), ev=round(ev), net=round(ev - cost) if cost_ok else None, costOk=cost_ok, evOk=ev_ok))
+    out.sort(key=lambda r: r['net'] if r['net'] is not None else -1e18, reverse=True)
+    return out
+
+
 def dragon_rows(names, price_of, craft_cost, previous, refresh):
     """レシピは6時間ごとに読み直し、値段は毎時の相場で計算する。"""
     recipes = fetch_dragon(names) if refresh or not is_current(previous) else {}
@@ -228,8 +255,9 @@ def main():
             d = get(f'{API}/crafts/{t["target_key"]}?server={SERVER}', tries=2)
         except Exception:
             continue
+        tcost = {x['item_key']: x.get('cost') for x in d.get('tiers', [])}  # 各段の光る品を1個作る平均費用
         details[str(t['target_key'])] = [dict(
-            key=s['result_key'], name=s['result_name'], mastery=s.get('mastery_level'), success=s.get('success_rate'),
+            key=s['result_key'], tcost=tcost.get(s['result_key']), name=s['result_name'], mastery=s.get('mastery_level'), success=s.get('success_rate'),
             combo=s.get('combo_probability'), attempts=s.get('attempts'), cost=round(s.get('step_cost') or 0),
             mats=[dict(key=m['material_key'], name=m['name'], per=m.get('per_attempt'), exp=m.get('expected'),
                        unit=m.get('unit_price'), sub=round(m.get('subtotal') or 0), method=m.get('method'),
@@ -293,7 +321,8 @@ def main():
 
     data = dict(stamp=now.astimezone(JST).strftime('%m/%d %H:%M'), built=datetime.now(JST).strftime('%m/%d %H:%M'),
                 capturedIso=now.strftime('%Y-%m-%dT%H:%M:%SZ'), t0Iso=t0.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                items=rows, hist=hist_out, crafts=craft_rows, craftDetail=details, dragon=dragon)
+                items=rows, hist=hist_out, crafts=craft_rows, craftDetail=details, dragon=dragon,
+                steps=step_rows(details, price_of, {ja: k for k, ja in names.items() if ja}))
     html = (BASE / 'template.html').read_text(encoding='utf-8')
     html = html.replace('/*DATA*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/'))
     icon = BASE / 'icon64.b64'

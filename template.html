@@ -349,6 +349,7 @@ const views = {
       <p class="note">Aion2Marketの試算（製作熟練度100が前提）。費用は大成功を重ねて最上位を1個作るまでの平均です。製作の種類は英語名からの訳です。</p>
       <table><tr><th>製作品</th><th>費用</th><th>最安値</th><th>手残り</th></tr>
       ${D.crafts.map(c => `<tr data-craft="${c[6]}" style="cursor:pointer"><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}${D.craftDetail && D.craftDetail[c[6]] ? '・<u>内訳を見る</u>' : ''}</div></td><td>${yen(c[2])}</td><td>${yen(c[3])}</td><td>${badgeY(c[5])}</td></tr>`).join('')}</table>
+      ${stepSection()}
       ${['真龍王', '光る真龍王', '白龍王', '光る白龍王', '冥龍王', '光る冥龍王'].map(dragonTable).join('')}
       <p class="note" style="margin-top:8px">真龍王〜光る冥龍王シリーズの材料費は、AION 2 データベースのレシピ（材料の合計）と今の相場から計算しています。
         材料ごとに「取引所の最安値・商店の値段・製作費（Aion2Marketの試算）」の安い方を使います。真龍王の材料費は1回成功した場合で、失敗の分は含めていません。
@@ -451,6 +452,26 @@ const plink = name => {
   const i = byJa[name.replace('（移し替えの土台）', '')];
   return i ? `<button class="plink" data-chart="${i.k}">${esc(name)} 📈</button>` : esc(name);
 };
+// 下のレア度の製作（1回作るごとの損得）。行をタップすると、その系統の内訳を開く
+function stepSection() {
+  if (!(D.steps || []).length) return '';
+  const pc = v => v == null ? '-' : Math.round(v * 100) + '%';
+  const table = (tier, label) => {
+    const rows = D.steps.filter(r => r.tier === tier);
+    return `<details><summary class="sec-title" style="cursor:pointer">${label}（${rows.length}件）</summary>
+      <table><tr><th>作る品</th><th>1回の費用</th><th>売上の見込み</th><th>1回の手残り</th></tr>
+      ${rows.map(r => `<tr data-craft="${r.top}" style="cursor:pointer"><td>${esc(r.name)}
+        <div class="note" style="margin:0">成功${pc(r.success)}・普通 ${r.pp ? yen(r.pp) : '出品なし'}・大成功${pc(r.combo)}で光る ${r.ps ? yen(r.ps) : '出品なし'}${r.base ? '<br>土台：' + esc(r.base) : ''}</div></td>
+        <td>${yen(r.cost)}${r.costOk ? '' : '＋?'}</td><td>${yen(r.ev)}${r.evOk ? '' : '＋?'}</td><td>${r.net == null ? '-' : badgeY(r.net) + (r.evOk ? '' : '＋?')}</td></tr>`).join('')}</table></details>`;
+  };
+  return `<div class="sec-title">下のレア度の製作（1回ごとの損得）</div>
+    <p class="note">達人の光るシリーズの途中の段を、1回作るごとに見たものです。1段目は普通の品ができ、大成功なら「光る〜」。
+      2段目は「光る〜」を土台にして「職人の〜」（大成功で「職人の光る〜」）、3段目は「職人の光る〜」を土台にして「達人の〜」（大成功で「達人の光る〜」）ができます。<br>
+      売上の見込み＝成功率×（普通の品と光る品の最安値を、大成功の確率で平均）から手数料を引いた額。失敗すると材料と土台はなくなる前提です。
+      土台の値段は取引所の最安値、出品がなければ作った場合の平均費用。「＋?」は出品がなく値段が分からない品があるという意味です。
+      成功率・大成功の確率・材料費はAion2Marketの試算（製作熟練度100が前提）。</p>
+    ${table(1, '1段目：普通・光る')}${table(2, '2段目：職人の〜')}${table(3, '3段目：達人の〜')}`;
+}
 const chartBtn = k => byKey[k] ? `<div class="actions" style="margin:6px 0"><button class="btn small" data-chart="${k}">この品の値動きを見る 📈</button></div>` : '';
 function openCraft(key) {
   dlgBack = () => openCraft(key);
