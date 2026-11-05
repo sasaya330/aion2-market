@@ -174,28 +174,30 @@ def is_current(recipes):
 
 
 def step_rows(details, price_of, key_of):
-    """下のレア度の製作を、1回作るごとの損得で見る（個人用アプリの collector.py と同じ計算）。
+    """下のレア度の製作を、光る品を1個作るまでの損得で見る（個人用アプリの collector.py と同じ計算）。
     1段目は普通の品ができ、大成功（約25%）なら光る品。2段目からは前の段の光る品を土台にして、
     職人の〜（大成功で職人の光る〜）、達人の〜（大成功で達人の光る〜）ができる。
+    光る品が1個できるまでに何回も作る。途中でできた普通の品は売らない前提（本人の使い方）。
     失敗すると材料と土台はなくなる（Aion2Market の試算と同じ前提）。"""
     keep = 1 - SELL_FEE - LIST_FEE
     out = []
     for top, steps in details.items():
         for n, s in enumerate(steps):
-            if not s.get('attempts') or 'key' not in s:
+            if not (s.get('attempts') and s.get('success') and s.get('combo')) or 'key' not in s:
                 continue  # 古い形の控え（段の品目IDが無い）
             plain = s['name'].replace('光る', '', 1)
-            pp, ps = price_of.get(key_of.get(plain)), price_of.get(str(s['key']))
+            ps = price_of.get(str(s['key']))
             base = None
             if n:
                 b = steps[n - 1]
                 base = price_of.get(str(b.get('key'))) or b.get('tcost')  # 土台は、取引所の最安値か、作った場合の平均費用
-            cost = s['cost'] / s['attempts'] + (base or 0)
-            ev = (s.get('success') or 0) * ((1 - (s.get('combo') or 0)) * (pp or 0) + (s.get('combo') or 0) * (ps or 0)) * keep
-            cost_ok, ev_ok = not n or base is not None, bool(pp and ps)
-            out.append(dict(tier=n + 1, top=top, name=plain, shiny=s['name'], base=steps[n - 1]['name'] if n else None,
-                            pk=key_of.get(plain), sk=str(s['key']), pp=pp, ps=ps, success=s.get('success'), combo=s.get('combo'),
-                            cost=round(cost), ev=round(ev), net=round(ev - cost) if cost_ok else None, costOk=cost_ok, evOk=ev_ok))
+            per = 1 / (s['success'] * s['combo'])   # 光る品が1個できるまでの平均回数
+            normal = per * s['success'] * (1 - s['combo'])   # その間にできる普通の品の数（売らない）
+            cost = (s['cost'] / s['attempts'] + (base or 0)) * per
+            cost_ok = not n or base is not None
+            out.append(dict(tier=n + 1, top=top, name=s['name'], plain=plain, base=steps[n - 1]['name'] if n else None,
+                            per=round(per, 1), normal=round(normal, 1), ps=ps, cost=round(cost),
+                            net=round(ps * keep - cost) if ps and cost_ok else None, costOk=cost_ok))
     out.sort(key=lambda r: r['net'] if r['net'] is not None else -1e18, reverse=True)
     return out
 
