@@ -190,7 +190,8 @@ def step_rows(details, price_of, key_of):
             base = None
             if n:
                 b = steps[n - 1]
-                base = price_of.get(str(b.get('key'))) or b.get('tcost')  # 土台は、取引所の最安値か、作った場合の平均費用
+                # 土台は、取引所で買うのと自分で作る（平均費用）のうち安い方
+                base = min((v for v in (price_of.get(str(b.get('key'))), b.get('tcost')) if v), default=None)
             per = 1 / (s['success'] * s['combo'])   # 光る品が1個できるまでの平均回数
             normal = per * s['success'] * (1 - s['combo'])   # その間にできる普通の品の数（売らない）
             cost = (s['cost'] / s['attempts'] + (base or 0)) * per
