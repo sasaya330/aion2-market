@@ -98,8 +98,9 @@ def gather_list(html):
     for li in html[i:html.find('</ul>', i)].split('<li')[1:]:
         m = re.search(r'>(\d+)<!-- -->×</span>.*?it_(\d+)">([^<]+)</a>', li, re.S)
         if m:
-            shop = re.search(r'· ([\d,]+) Kina', li)
-            out.append([int(m.group(1)), m.group(2), unescape(m.group(3)), int(shop.group(1).replace(',', '')) if shop else None])
+            # 日本語ページの商店価格は「ギーナ」表記（英語ページは Kina）。複数の商店に並ぶ品は安い方
+            shops = [int(p.replace(',', '')) for p in re.findall(r'· ([\d,]+) (?:Kina|ギーナ)', li)]
+            out.append([int(m.group(1)), m.group(2), unescape(m.group(3)), min(shops) if shops else None])
     return out or None
 
 

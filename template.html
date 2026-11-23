@@ -7,82 +7,98 @@
 <title>AION2 相場（バイゼル）</title>
 <!--ICON-->
 <style>
+/* 帳場：見出しとタブは控えめにし、品目は1枚の台帳に行で並べる。金色の文字はギーナの金額だけ */
 :root {
-  --bg: #f4f5f7; --card: #ffffff; --text: #1d2129; --sub: #6b7280; --line: #e5e7eb;
-  --accent: #2f5bd3; --up: #15803d; --down: #b91c1c; --good-bg: #dcfce7; --good: #166534;
-  --bad-bg: #fee2e2; --bad: #991b1b; --chip: #eef2ff;
+  --bg: #f5f4f0; --card: #ffffff; --text: #1b1d22; --sub: #676b74; --line: #e3e1da;
+  --accent: #2a4fbf; --kina: #8a5a00; --up: #15803d; --down: #b91c1c; --good-bg: #dcfce7; --good: #166534;
+  --bad-bg: #fee2e2; --bad: #991b1b; --chip: #efede7; --hdr: rgba(245,244,240,.92); --r: 12px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115; --card: #1a1d24; --text: #e8eaf0; --sub: #9aa3b2; --line: #2a2f3a;
-    --accent: #7ea2ff; --up: #4ade80; --down: #f87171; --good-bg: #123322; --good: #86efac;
-    --bad-bg: #3a1616; --bad: #fca5a5; --chip: #222a3d;
+    --bg: #111215; --card: #18191d; --text: #e9e8e4; --sub: #9a9ca3; --line: #26282d;
+    --accent: #8fa8ff; --kina: #e2b65c; --up: #4ade80; --down: #f87171; --good-bg: #123322; --good: #86efac;
+    --bad-bg: #3a1616; --bad: #fca5a5; --chip: #202227; --hdr: rgba(17,18,21,.92);
   }
 }
+:root { color-scheme: light dark; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo UI", sans-serif; }
-header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
-  padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
-h1 { font-size: 17px; margin: 0; }
-.meta { color: var(--sub); font-size: 12px; margin: 2px 0 8px; }
+body { margin: 0; background: var(--bg); color: var(--text); -webkit-text-size-adjust: 100%;
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--hdr); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line); padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
+h1 { font-size: 16px; margin: 0; font-weight: 700; }
+h1 .srv { font-weight: 400; color: var(--sub); font-size: 13px; margin-left: 6px; }
+.meta { color: var(--sub); font-size: 12px; margin: 2px 0 6px; }
+.meta a { color: var(--accent); }
 .stale { color: var(--bad); font-weight: 700; }
-nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 10px; }
 nav::-webkit-scrollbar { display: none; }
 nav button { flex: none; border: 0; background: none; color: var(--sub); font: inherit; font-size: 14px;
-  padding: 8px 10px; border-bottom: 3px solid transparent; cursor: pointer; }
-nav button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
-main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 24px); max-width: 900px; margin: 0 auto; }
+  padding: 8px 10px 9px; border-bottom: 2px solid transparent; cursor: pointer; }
+nav button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 700; }
 footer { max-width: 900px; margin: 0 auto; padding: 0 16px 32px; color: var(--sub); font-size: 11px; }
 footer a { color: var(--sub); }
+main { padding: 14px 16px calc(env(safe-area-inset-bottom) + 28px); max-width: 900px; margin: 0 auto; }
 .note { color: var(--sub); font-size: 12px; margin: 0 0 10px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .controls input, .controls select { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--card); color: var(--text); }
 .controls input { flex: 1 1 180px; min-width: 0; }
 .list { display: grid; gap: 8px; }
-.item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+.item { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px;
   display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; cursor: pointer; }
 .item .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item .price { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.item .price { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--kina); }
 .item .sub { color: var(--sub); font-size: 12px; }
-.item .right { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
-.badge { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.item .right { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--sub); }
+.item .right b { color: var(--text); font-size: 14px; }
+.badge { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pos { background: var(--good-bg); color: var(--good); }
 .neg { background: var(--bad-bg); color: var(--bad); }
 .upc { color: var(--up); } .dnc { color: var(--down); }
 .spark { grid-column: 1 / -1; height: 28px; width: 100%; }
-.sec-title { font-weight: 700; margin: 14px 0 6px; }
-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden;
+.sec-title { font-weight: 700; margin: 18px 0 8px; }
+details > summary.sec-title { list-style: none; }
+details > summary.sec-title::-webkit-details-marker { display: none; }
+details > summary.sec-title::before { content: '▸'; display: inline-block; width: 1em; color: var(--sub); transition: transform .15s; }
+details[open] > summary.sec-title::before { transform: rotate(90deg); }
+table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--r); overflow: hidden;
   border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; font-size: 14px; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; font-size: 14px; }
+tr:last-child > td { border-bottom: 0; }
 th:first-child, td:first-child { text-align: left; }
-th { background: var(--chip); font-size: 12px; color: var(--sub); }
-dialog { border: 0; border-radius: 16px; padding: 0; width: min(640px, calc(100% - 24px)); background: var(--card); color: var(--text); }
-dialog::backdrop { background: rgba(0,0,0,.45); }
+th { background: var(--chip); font-size: 12px; color: var(--sub); font-weight: 600; }
+.big { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; }
+.card .label { color: var(--sub); font-size: 12px; }
+dialog { border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(640px, calc(100% - 24px)); background: var(--bg); color: var(--text); }
+dialog::backdrop { background: rgba(0,0,0,.5); }
 .dlg { padding: 16px; }
 .dlg h2 { margin: 0 0 2px; font-size: 18px; }
-.dlg .close { float: right; border: 0; background: var(--chip); color: var(--text); border-radius: 8px; padding: 6px 10px; font: inherit; }
+.dlg .close { float: right; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.chart { width: 100%; height: 200px; margin: 10px 0; }
 .empty { color: var(--sub); text-align: center; padding: 24px; }
-.btn { font: inherit; font-size: 14px; border: 0; border-radius: 10px; padding: 8px 12px; background: var(--accent); color: #fff; cursor: pointer; }
-.btn.ghost { background: var(--chip); color: var(--text); }
-.btn.small { padding: 4px 10px; font-size: 13px; }
-.form { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; margin-bottom: 12px; }
+.btn { font: inherit; font-size: 14px; border: 0; border-radius: 10px; padding: 8px 12px; background: var(--accent); color: var(--bg); font-weight: 700; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 400; }
+.btn.small { padding: 5px 12px; font-size: 13px; }
+.form { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; margin-bottom: 12px; }
 .form label { display: grid; gap: 2px; font-size: 12px; color: var(--sub); }
-.form input { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
+.form input, .form select { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .msg { font-size: 13px; min-height: 1.2em; }
 .msg.err { color: var(--bad); }
-.rule { background: var(--chip); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+.rule { background: var(--chip); border-radius: var(--r); padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
 .rule b { display: block; margin-bottom: 2px; }
-.tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; margin-left: 4px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; margin-left: 4px; vertical-align: 1px; }
 .tag.down { background: var(--bad-bg); color: var(--bad); }
 .tag.up { background: var(--good-bg); color: var(--good); }
 .actions { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .seg { display: flex; gap: 4px; margin: 10px 0 6px; }
 .seg button { flex: 1; font: inherit; font-size: 13px; padding: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer; }
-.seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-.tip { font-size: 13px; padding: 6px 8px; background: var(--chip); border-radius: 8px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.controls .seg button { flex: none; padding: 6px 14px; white-space: nowrap; }  /* 検索欄の横では幅が足りず「カー/ド」と折れていた */
+.seg button.on { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
+.chartbox { position: relative; }
 .plink { border: 0; background: none; color: var(--accent); padding: 0; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; }
 .star { border: 0; background: none; color: var(--sub); font-size: 17px; line-height: 1; padding: 0 6px 0 0; cursor: pointer; vertical-align: -1px; }
 .star.on { color: #eab308; }
@@ -91,20 +107,52 @@ table.grid td, table.grid th { white-space: nowrap; font-size: 13px; padding: 7p
 table.grid td:nth-child(2) { white-space: normal; min-width: 150px; text-align: left; }
 table.grid td:nth-child(3), table.grid th:nth-child(3) { text-align: left; }
 table.grid tr[data-k] { cursor: pointer; }
-table.grid tr[data-k]:hover { background: var(--chip); }
+table.grid tr[data-k]:hover, tr[data-craft]:hover, tr[data-dragon]:hover { background: var(--chip); }
 th.sortable { cursor: pointer; text-decoration: underline dotted; }
 .legend { display: flex; gap: 14px; font-size: 12px; color: var(--sub); margin-top: 2px; }
 .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right: 4px; }
 .legend i.lst { border-top: 2px dashed #a3a3a3; }
+.tip { font-size: 13px; padding: 6px 8px; background: var(--chip); border-radius: 8px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+td .note { margin: 2px 0 0; }
+
+/* 台帳：カードを1枚にまとめ、区切りは行の間の細線だけにする */
+header { border-bottom-color: transparent; box-shadow: 0 1px 0 var(--line); }
+.list { gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.item { border: 0; border-radius: 0; border-top: 1px solid var(--line); background: none; padding: 12px 14px; }
+.item:first-child { border-top: 0; }
+.item .price { font-size: 17px; }
+.rule { background: none; border-radius: 0; padding: 0; margin: 26px 0 10px; color: var(--sub); }
+main > .rule:first-child { margin-top: 4px; }
+.rule b { color: var(--text); font-size: 16px; margin-bottom: 4px; }
+@media (min-width: 1000px) {
+  /* 複数列では、各行の上と左にだけ線を引く（外周の線は .list の overflow で隠れる）。空いたマスは地の色のまま */
+  .item, .item:first-child { border-top: 0; box-shadow: -1px -1px 0 var(--line); }
+}
+
+/* スマホ幅：製作の表は「品名を1行・数字を3つ並べる」形に組み替える（品名が4〜5行に折れて右端がはみ出すため） */
+@media (max-width: 640px) {
+  table.stack tr:first-child { display: none; }
+  table.stack tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border: 0; padding: 0; text-align: left; font-size: 14px; }
+  table.stack td:first-child { grid-column: 1 / -1; font-weight: 700; margin-bottom: 4px; }
+  table.stack td:first-child .note { font-weight: 400; }
+  table.stack td[data-l]::before { content: attr(data-l); display: block; font-size: 11px; color: var(--sub); }
+  table.stack td:last-child { text-align: right; }
+}
+/* PC など広い画面: 見出しと中身の幅をそろえ、一覧を複数列に並べる */
 @media (min-width: 1000px) {
   header { padding-left: 0; padding-right: 0; }
   header > * { max-width: 1400px; margin-left: auto; margin-right: auto; padding-left: 24px; padding-right: 24px; }
-  main, footer { max-width: 1400px; padding-left: 24px; padding-right: 24px; }
+  nav { margin: 0 auto; padding: 0 14px; }
+  main { max-width: 1400px; padding: 18px 24px 32px; }
+  footer { max-width: 1400px; padding-left: 24px; padding-right: 24px; }
   .list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
   .rule { max-width: 1000px; }
   .form { max-width: 720px; }
   table { max-width: 1100px; }
-  dialog { width: min(960px, calc(100% - 48px)); }
+  .cards { grid-template-columns: repeat(4, minmax(0, 260px)); }
+  dialog { width: min(960px, calc(100% - 48px)); }  /* PC ではグラフを横に広く */
 }
 </style>
 </head>
@@ -340,15 +388,15 @@ const views = {
         ${esc((rows[0].base || '').split('の')[0])}を土台にして作り直します（失敗しない・強化値と刻印は引き継がれる）。
         下の材料費は、土台（取引所で買うか、真龍王から順に作るかの安い方）＋この段の材料です。移し替えで作った品は本人専用になるため、取引所には出ません。</div>`;
       return `<details ${n < 2 ? 'open' : ''}><summary class="sec-title" style="cursor:pointer">${esc(series)}シリーズ（${rows.length}件）</summary>${warn}
-        <table><tr><th>製作品</th><th>材料費</th><th>最安値</th><th>手残り</th></tr>
+        <table class="stack"><tr><th>製作品</th><th>材料費</th><th>最安値</th><th>手残り</th></tr>
         ${rows.map(r => `<tr data-dragon="${r.key}" style="cursor:pointer"><td>${esc(r.name)}<div class="note" style="margin:0">${r.complete ? '' : '材料の値段が一部不明・'}<u>材料を見る</u></div></td>
-          <td>${yen(r.cost)}${r.complete ? '' : '＋?'}</td><td>${r.price ? yen(r.price) : '出品なし'}</td><td>${badgeY(r.net)}</td></tr>`).join('')}</table></details>`;
+          <td data-l="材料費">${yen(r.cost)}${r.complete ? '' : '＋?'}</td><td data-l="最安値">${r.price ? yen(r.price) : '出品なし'}</td><td data-l="手残り">${badgeY(r.net)}</td></tr>`).join('')}</table></details>`;
     };
     return `<p class="note">行をタップすると、材料の内訳が見られます。手残り＝最安値で売れた場合に、販売手数料10%と出品手数料2%を引いた額 − 費用。</p>
       <div class="sec-title">達人の光るシリーズ</div>
       <p class="note">Aion2Marketの試算（製作熟練度100が前提）。費用は大成功を重ねて最上位を1個作るまでの平均です。製作の種類は英語名からの訳です。</p>
-      <table><tr><th>製作品</th><th>費用</th><th>最安値</th><th>手残り</th></tr>
-      ${D.crafts.map(c => `<tr data-craft="${c[6]}" style="cursor:pointer"><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}${D.craftDetail && D.craftDetail[c[6]] ? '・<u>内訳を見る</u>' : ''}</div></td><td>${yen(c[2])}</td><td>${yen(c[3])}</td><td>${badgeY(c[5])}</td></tr>`).join('')}</table>
+      <table class="stack"><tr><th>製作品</th><th>費用</th><th>最安値</th><th>手残り</th></tr>
+      ${D.crafts.map(c => `<tr data-craft="${c[6]}" style="cursor:pointer"><td>${esc(c[0])}<div class="note" style="margin:0">${esc(c[1])}・出品${c[4] ?? '-'}${D.craftDetail && D.craftDetail[c[6]] ? '・<u>内訳を見る</u>' : ''}</div></td><td data-l="費用">${yen(c[2])}</td><td data-l="最安値">${yen(c[3])}</td><td data-l="手残り">${badgeY(c[5])}</td></tr>`).join('')}</table>
       ${stepSection()}
       ${['真龍王', '光る真龍王', '白龍王', '光る白龍王', '冥龍王', '光る冥龍王'].map(dragonTable).join('')}
       <p class="note" style="margin-top:8px">真龍王〜光る冥龍王シリーズの材料費は、AION 2 データベースのレシピ（材料の合計）と今の相場から計算しています。
@@ -459,10 +507,10 @@ function stepSection() {
   const table = (tier, label) => {
     const rows = D.steps.filter(r => r.tier === tier);
     return `<details><summary class="sec-title" style="cursor:pointer">${label}（${rows.length}件）</summary>
-      <table><tr><th>作る品</th><th>1個の費用</th><th>最安値</th><th>手残り</th></tr>
+      <table class="stack"><tr><th>作る品</th><th>1個の費用</th><th>最安値</th><th>手残り</th></tr>
       ${rows.map(r => `<tr data-craft="${r.top}" style="cursor:pointer"><td>${esc(r.name)}
         <div class="note" style="margin:0">約${r.per}回作る${r.base ? '（土台：' + esc(r.base) + '×' + r.per + '）' : ''}<br>途中で${esc(r.plain)}が約${r.normal}個できる（売らない）</div></td>
-        <td>${yen(r.cost)}${r.costOk ? '' : '＋?'}</td><td>${r.ps ? yen(r.ps) : '出品なし'}</td><td>${badgeY(r.net)}</td></tr>`).join('')}</table></details>`;
+        <td data-l="1個の費用">${yen(r.cost)}${r.costOk ? '' : '＋?'}</td><td data-l="最安値">${r.ps ? yen(r.ps) : '出品なし'}</td><td data-l="手残り">${badgeY(r.net)}</td></tr>`).join('')}</table></details>`;
   };
   return `<div class="sec-title">下のレア度の製作（光る品を1個作るまで）</div>
     <p class="note">達人の光るシリーズの途中の段を、光る品を1個作る前提で見たものです。作ると普通の品ができ、大成功（約25%）で光る品になります。
