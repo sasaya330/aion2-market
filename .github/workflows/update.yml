@@ -24,30 +24,30 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url || steps.deploy-retry.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: 相場を取り込んでページを作る
         run: python update.py
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
       # 直前に上げた公開用の荷物が GitHub 側でまだ見えず、「No artifacts named "github-pages"」で
       # 失敗することがある（actions/deploy-pages#451。荷物自体は上がっている）。少し待って1回だけやり直す
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         continue-on-error: true
       - name: 公開に失敗したら1分待つ
         if: steps.deploy.outcome == 'failure'
         run: sleep 60
       - id: deploy-retry
         if: steps.deploy.outcome == 'failure'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       # GitHub は、60日間コミットのない公開リポジトリの定時実行を止める。
       # 最後のコミットから30日たっていたら、日付だけを書いた記録を残して止まらないようにする
       - name: 自動実行が止まらないよう、月1回だけ記録を残す
